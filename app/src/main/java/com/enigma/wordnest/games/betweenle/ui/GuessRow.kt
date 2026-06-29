@@ -28,7 +28,7 @@ import com.enigma.wordnest.games.betweenle.ui.theme.FarGray
 import com.enigma.wordnest.games.betweenle.ui.theme.HotOrange
 import com.enigma.wordnest.games.betweenle.ui.theme.WarmYellow
 import com.enigma.wordnest.games.betweenle.ui.theme.feedbackColor
-import com.fluffyinc.wordnest.games.betweenle.ui.theme.*
+
 
 @Composable
 fun GuessRow(

@@ -2,7 +2,7 @@ package com.enigma.wordnest.games.processors
 
 import android.content.Context
 import android.util.Log
-import com.fluffyinc.wordnest.R
+import com.enigma.wordnest.R
 import com.google.gson.stream.JsonReader
 import java.io.InputStreamReader
 
