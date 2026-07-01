@@ -144,7 +144,7 @@ fun BoardCell(
                     Modifier.shadow(elevation = 3.dp, shape = RoundedCornerShape(3.dp))
                 else Modifier
             )
-            .clickable(enabled = tile == null) { onCellClick(row, col) },
+            .clickable(enabled = tile == null || isPlacedThisTurn) { onCellClick(row, col) },
         contentAlignment = Alignment.Center
     ) {
         if (tile != null) {

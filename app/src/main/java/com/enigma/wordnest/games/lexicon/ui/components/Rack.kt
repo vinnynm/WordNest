@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.rememberScrollableState
 import androidx.compose.foundation.gestures.scrollable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -43,18 +45,15 @@ fun Rack(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
-        var scrollState = rememberScrollableState {
+        val scrollState = rememberScrollableState {
             0f
         }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .scrollable(
-                    state = scrollState,
-                    orientation = Orientation.Horizontal
-                )
+                .horizontalScroll(rememberScrollState())
                 .padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             rack.forEachIndexed { index, letter ->
                 TilePiece(
