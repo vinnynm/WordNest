@@ -36,15 +36,16 @@ fun GuessGrid(
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(gap)
+        verticalArrangement = Arrangement.spacedBy(2.dp)      // tighter — badge fills the gap
     ) {
-        // Submitted rows
         submittedGuesses.forEachIndexed { idx, guess ->
             val isLatest = idx == submittedGuesses.lastIndex
             val count    = candidateHistory.getOrNull(idx)
+
+            // ── Tile row ──────────────────────────────────────────────────
             Row(
                 horizontalArrangement = Arrangement.spacedBy(gap),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.padding(vertical = 2.dp)
             ) {
                 guess.letters.forEachIndexed { i, letter ->
                     LetterTile(
@@ -55,9 +56,16 @@ fun GuessGrid(
                         flipDelay = i * 80
                     )
                 }
-                // Candidate count badge to the right
-                if (showCandidateCount && count != null) {
-                    Spacer(Modifier.width(6.dp))
+            }
+
+            // ── Candidate count badge — own row so it never steals horizontal space ──
+            if (showCandidateCount && count != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 4.dp),
+                    contentAlignment = Alignment.CenterEnd
+                ) {
                     CandidateBadge(count = count, isLatest = isLatest)
                 }
             }
@@ -66,7 +74,10 @@ fun GuessGrid(
         // Current input row (shake if error)
         if (isActive) {
             ShakeRow(shaking = isShaking) {
-                Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(gap),
+                    modifier = Modifier.padding(vertical = 2.dp)
+                ) {
                     for (i in 0 until wordLength) {
                         val ch = currentInput.getOrNull(i)
                         LetterTile(
@@ -85,18 +96,17 @@ fun GuessGrid(
 @Composable
 private fun CandidateBadge(count: Int, isLatest: Boolean) {
     val bg = if (isLatest) ColorPurple else ColorPurple.copy(alpha = 0.35f)
-    val textColor = if (isLatest) Color.White
-                   else ColorPurpleLight.copy(alpha = 0.7f)
+    val textColor = if (isLatest) Color.White else ColorPurpleLight.copy(alpha = 0.7f)
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(10.dp))
             .background(bg)
-            .padding(horizontal = 8.dp, vertical = 3.dp)
+            .padding(horizontal = 8.dp, vertical = 2.dp)
     ) {
         Text(
-            text = "$count",
+            text = if (count == 1) "1 word left!" else "$count words",
             color = textColor,
-            fontSize = 11.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.Bold
         )
     }

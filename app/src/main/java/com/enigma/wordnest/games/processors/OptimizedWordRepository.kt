@@ -8,6 +8,53 @@ import java.io.InputStreamReader
 
 class OptimizedWordRepository(private val context: Context) {
 
+    // ── Large dictionary (used by Lexicon for word-legality checks) ─────────────
+    private val largeLibrary: Set<String> by lazy {
+        val words = mutableSetOf<String>()
+        try {
+            context.resources.openRawResource(R.raw.large_wordlib).use { inputStream ->
+                JsonReader(InputStreamReader(inputStream, "UTF-8")).use { reader ->
+                    reader.beginObject()
+                    while (reader.hasNext()) {
+                        reader.nextName()
+                        reader.beginArray()
+                        while (reader.hasNext()) words.add(reader.nextString().uppercase())
+                        reader.endArray()
+                    }
+                    reader.endObject()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("OptimizedWordRepository", "Error loading large dictionary", e)
+            throw e
+        }
+        words
+    }
+
+    private val smallerLibrary: Set<String> by lazy {
+        val words = mutableSetOf<String>()
+        try {
+            context.resources.openRawResource(R.raw.largelib).use { inputStream ->
+                JsonReader(InputStreamReader(inputStream, "UTF-8")).use { reader ->
+                    reader.beginObject()
+                    while (reader.hasNext()) {
+                        reader.nextName()
+                        reader.beginArray()
+                        while (reader.hasNext()) words.add(reader.nextString().uppercase())
+                        reader.endArray()
+                    }
+                    reader.endObject()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("OptimizedWordRepository", "Error loading large dictionary", e)
+            throw e
+        }
+        words
+    }
+
+    fun getAllWordsLargeLibrary(): Set<String> = largeLibrary
+    fun isWordValidLargeLibrary(word: String): Boolean = largeLibrary.contains(word.uppercase())
     private val allOfTheWords: Set<String> by lazy {
         val words = mutableSetOf<String>()
         try {

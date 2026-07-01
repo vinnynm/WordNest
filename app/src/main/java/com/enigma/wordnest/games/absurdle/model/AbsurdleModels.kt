@@ -45,7 +45,8 @@ data class AbsurdleState(
     val candidateHistory: List<Int>  = emptyList(),
     val showCandidateCount: Boolean  = true,
     val hardMode: Boolean            = false,
-    val isGameStarted: Boolean       = false
+    val isGameStarted: Boolean       = false,
+    val usePhysicalKeyboard: Boolean = false
 ) {
     val guessCount: Int get() = guesses.size
     val isActive: Boolean get() = !isWon && revealedWord == null

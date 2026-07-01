@@ -31,6 +31,7 @@ private val games = listOf(
     GameEntry("Betweenle", "🔤", "Find the word hiding between two boundaries", NestPink, "betweenle"),
     GameEntry("Absurdle", "😈", "The Wordle that fights back", NestPurple, "absurdle"),
     GameEntry("ChromaWord", "🌈", "Wordle, but every letter tells a richer story", NestTeal, "chromaword"),
+    GameEntry("Lexicon", "📜", "Two-player word strategy, vs a real AI", NestPurple, "lexicon"),
 )
 
 @OptIn(ExperimentalMaterial3Api::class)

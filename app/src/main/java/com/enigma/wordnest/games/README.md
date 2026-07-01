@@ -37,7 +37,7 @@ only Lexicon, which you chose to leave out, used it.)
 
 ## What changed from the original source
 
-- Everything now lives under the `com.fluffyinc.wordnest` package instead of
+- Everything now lives under the `com.enigma.wordnest` package instead of
   being nested inside the old `fluffyinc` app.
 - Each game's `GameScreen` composable was renamed (`BetweenleGameScreen`,
   `AbsurdleGameScreen`, `ChromaWordGameScreen`) so they're unambiguous from
@@ -56,6 +56,6 @@ only Lexicon, which you chose to leave out, used it.)
 ## Renaming the app / package
 
 If you want a different app name or package id, in Android Studio:
-right-click the `com.fluffyinc.wordnest` package → **Refactor → Rename**,
+right-click the `com.enigma.wordnest` package → **Refactor → Rename**,
 and separately change `app_name` in `res/values/strings.xml` and
 `applicationId` in `app/build.gradle.kts`.

@@ -10,7 +10,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.enigma.wordnest.games.chromaword.model.LetterColor
@@ -29,46 +31,38 @@ fun ChromaKeyboard(
     enabled: Boolean,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        KeyRow(ROW1, keyStates, onKey, enabled)
-        KeyRow(ROW2, keyStates, onKey, enabled)
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val gapDp      = 5.dp
+        val availDp    = maxWidth - 8.dp
+        val letterKeyW: Dp = minOf(
+            (availDp - gapDp * 9)  / 10,
+            (availDp - gapDp * 8)  / 10f
+        ).coerceAtMost(36.dp)
+        val actionKeyW = (letterKeyW * 1.5f)
+        val keyHeight  = (letterKeyW * 1.55f).coerceAtMost(52.dp)
 
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(gapDp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            ActionKey(label = "⌫", onClick = onBackspace, enabled = enabled)
-            for (ch in ROW3) {
-                LetterKey(ch = ch, color = keyStates[ch] ?: LetterColor.EMPTY,
-                    onClick = { onKey(ch) }, enabled = enabled)
+            Row(horizontalArrangement = Arrangement.spacedBy(gapDp)) {
+                for (ch in ROW1) LetterKey(ch, keyStates[ch] ?: LetterColor.EMPTY,
+                    { onKey(ch) }, enabled, letterKeyW, keyHeight)
             }
-            ActionKey(label = "↵", onClick = onEnter, enabled = enabled)
-        }
-    }
-}
-
-@Composable
-private fun KeyRow(
-    letters: List<Char>,
-    keyStates: Map<Char, LetterColor>,
-    onKey: (Char) -> Unit,
-    enabled: Boolean
-) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        for (ch in letters) {
-            LetterKey(
-                ch = ch,
-                color = keyStates[ch] ?: LetterColor.EMPTY,
-                onClick = { onKey(ch) },
-                enabled = enabled
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(gapDp)) {
+                for (ch in ROW2) LetterKey(ch, keyStates[ch] ?: LetterColor.EMPTY,
+                    { onKey(ch) }, enabled, letterKeyW, keyHeight)
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(gapDp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ActionKey("⌫", onBackspace, enabled, actionKeyW, keyHeight)
+                for (ch in ROW3) LetterKey(ch, keyStates[ch] ?: LetterColor.EMPTY,
+                    { onKey(ch) }, enabled, letterKeyW, keyHeight)
+                ActionKey("↵", onEnter, enabled, actionKeyW, keyHeight)
+            }
         }
     }
 }
@@ -78,41 +72,48 @@ private fun LetterKey(
     ch: Char,
     color: LetterColor,
     onClick: () -> Unit,
-    enabled: Boolean
+    enabled: Boolean,
+    width: Dp,
+    height: Dp
 ) {
+    val density = LocalDensity.current
+    val fontSize = with(density) { (width.toPx() * 0.42f).toSp() }.let {
+        if (it.value > 15f) 15.sp else it
+    }
+
     val bg = when (color) {
         LetterColor.EMPTY -> Color(0xFF818384)
         else              -> letterColor(color)
     }
     Box(
         modifier = Modifier
-            .width(33.dp)
-            .height(52.dp)
+            .width(width).height(height)
             .clip(RoundedCornerShape(6.dp))
             .background(bg)
             .clickable(enabled = enabled) { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = ch.uppercaseChar().toString(),
-            color = Color.White,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold
-        )
+        Text(ch.uppercaseChar().toString(), color = Color.White,
+            fontSize = fontSize, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
-private fun ActionKey(label: String, onClick: () -> Unit, enabled: Boolean) {
+private fun ActionKey(
+    label: String,
+    onClick: () -> Unit,
+    enabled: Boolean,
+    width: Dp,
+    height: Dp
+) {
     Box(
         modifier = Modifier
-            .width(50.dp)
-            .height(52.dp)
+            .width(width).height(height)
             .clip(RoundedCornerShape(6.dp))
             .background(Color(0xFF818384))
             .clickable(enabled = enabled) { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Text(text = label, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
     }
 }

@@ -33,6 +33,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _showDifficulty = MutableStateFlow(false)
     val showDifficulty: StateFlow<Boolean> = _showDifficulty.asStateFlow()
 
+    private val _usePhysicalKeyboard = MutableStateFlow(false)
+    val usePhysicalKeyboard: StateFlow<Boolean> = _usePhysicalKeyboard.asStateFlow()
+
     val stats: StateFlow<Stats> = statsRepo.stats
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Stats())
 
@@ -130,6 +133,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleStats()      { _showStats.value    = !_showStats.value }
     fun toggleHowTo()      { _showHowTo.value    = !_showHowTo.value }
     fun toggleDifficulty() { _showDifficulty.value = !_showDifficulty.value }
+    fun togglePhysicalKeyboard() { _usePhysicalKeyboard.value = !_usePhysicalKeyboard.value }
 
     fun buildShareText(): String {
         val s = _state.value

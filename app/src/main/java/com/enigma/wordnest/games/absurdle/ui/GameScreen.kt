@@ -20,7 +20,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.enigma.wordnest.games.absurdle.ui.AbsurdleKeyboard
+import com.enigma.wordnest.games.absurdle.ui.CandidateCountBar
 import com.enigma.wordnest.games.absurdle.ui.theme.AbsurdleTheme
+import com.enigma.wordnest.games.absurdle.ui.theme.ColorPurple
 import com.enigma.wordnest.games.absurdle.ui.theme.ColorPurpleLight
 import com.enigma.wordnest.games.absurdle.ui.theme.ColorSubtle
 import com.enigma.wordnest.games.absurdle.viewmodel.AbsurdleViewModel
@@ -45,25 +48,25 @@ fun AbsurdleGameScreen(vm: AbsurdleViewModel = viewModel()) {
     }
 
     AbsurdleTheme {
-        // Dialogs
         if (showHowTo) HowToPlayDialog(onDismiss = vm::toggleHowTo)
         if (showSettings) SettingsDialog(
-            wordLength = state.wordLength,
-            hardMode = state.hardMode,
-            showCandidateCount = state.showCandidateCount,
-            onWordLength = vm::setWordLength,
-            onHardMode = vm::setHardMode,
-            onToggleCandidateCount = vm::toggleCandidateCount,
-            onDismiss = vm::toggleSettings
+            wordLength              = state.wordLength,
+            hardMode                = state.hardMode,
+            showCandidateCount      = state.showCandidateCount,
+            usePhysicalKeyboard     = state.usePhysicalKeyboard,
+            onWordLength            = vm::setWordLength,
+            onHardMode              = vm::setHardMode,
+            onToggleCandidateCount  = vm::toggleCandidateCount,
+            onTogglePhysicalKeyboard = vm::togglePhysicalKeyboard,
+            onDismiss               = vm::toggleSettings
         )
 
-        // Give-up confirmation
         var confirmGiveUp by remember { mutableStateOf(false) }
         if (confirmGiveUp) {
             AlertDialog(
                 onDismissRequest = { confirmGiveUp = false },
                 title = { Text("Give up?") },
-                text  = { Text("The game will reveal a word it could have used. Your progress won't count.") },
+                text  = { Text("The game will reveal a word it could have used.") },
                 confirmButton = {
                     TextButton(onClick = { vm.giveUp(); confirmGiveUp = false }) {
                         Text("Give up", color = MaterialTheme.colorScheme.error)
@@ -80,21 +83,13 @@ fun AbsurdleGameScreen(vm: AbsurdleViewModel = viewModel()) {
                 TopAppBar(
                     title = {
                         Column {
-                            Text(
-                                "Absurdle",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 22.sp,
-                                color = ColorPurpleLight
-                            )
-                            Text(
-                                "${state.wordLength} letters  ·  ${if (state.hardMode) "Hard 💀" else "Normal"}",
-                                fontSize = 11.sp,
-                                color = ColorSubtle
-                            )
+                            Text("Absurdle", fontWeight = FontWeight.Black, fontSize = 22.sp,
+                                color = ColorPurpleLight)
+                            Text("${state.wordLength} letters  ·  ${if (state.hardMode) "Hard 💀" else "Normal"}",
+                                fontSize = 11.sp, color = ColorSubtle)
                         }
                     },
                     actions = {
-                        // Give up button (only when game active)
                         if (state.isActive && state.guessCount > 0) {
                             IconButton(onClick = { confirmGiveUp = true }) {
                                 Icon(Icons.Filled.Flag, "Give up",
@@ -109,8 +104,7 @@ fun AbsurdleGameScreen(vm: AbsurdleViewModel = viewModel()) {
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background
-                    )
+                        containerColor = MaterialTheme.colorScheme.background)
                 )
             },
             containerColor = MaterialTheme.colorScheme.background
@@ -128,9 +122,7 @@ fun AbsurdleGameScreen(vm: AbsurdleViewModel = viewModel()) {
             }
 
             if (!state.isGameStarted) {
-                AbsurdleStartScreen(
-                    onStartGame = { len, hard -> vm.startGame(len, hard) }
-                )
+                AbsurdleStartScreen(onStartGame = { len, hard -> vm.startGame(len, hard) })
                 return@Scaffold
             }
 
@@ -143,101 +135,89 @@ fun AbsurdleGameScreen(vm: AbsurdleViewModel = viewModel()) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-
-                // Candidate pool bar
                 if (state.showCandidateCount) {
                     val total = vm.wordRepo.countOfLength(state.wordLength)
-                    CandidateCountBar(
-                        current = state.candidates.size,
-                        total = total
-                    )
+                    CandidateCountBar(current = state.candidates.size, total = total)
                 }
 
-                // Error message
                 AnimatedVisibility(
                     visible = state.errorMessage != null,
                     enter = fadeIn() + expandVertically(),
                     exit  = fadeOut() + shrinkVertically()
                 ) {
                     state.errorMessage?.let { msg ->
-                        Surface(
-                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
-                            shape = MaterialTheme.shapes.small
-                        ) {
-                            Text(
-                                text = msg,
-                                color = MaterialTheme.colorScheme.error,
+                        Surface(color = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                            shape = MaterialTheme.shapes.small) {
+                            Text(text = msg, color = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                fontSize = 13.sp, fontWeight = FontWeight.Medium
-                            )
+                                fontSize = 13.sp, fontWeight = FontWeight.Medium)
                         }
                     }
                 }
 
-                // Guess count
                 if (state.guessCount > 0) {
-                    Text(
-                        text = "${state.guessCount} guess${if (state.guessCount != 1) "es" else ""} so far",
-                        fontSize = 12.sp,
-                        color = ColorSubtle
-                    )
+                    Text("${state.guessCount} guess${if (state.guessCount != 1) "es" else ""} so far",
+                        fontSize = 12.sp, color = ColorSubtle)
                 } else {
-                    Text(
-                        text = "😈 The game is watching your every move",
-                        fontSize = 12.sp,
-                        color = ColorSubtle,
-                        textAlign = TextAlign.Center
-                    )
+                    Text("😈 The game is watching your every move",
+                        fontSize = 12.sp, color = ColorSubtle, textAlign = TextAlign.Center)
                 }
 
-                // Guess grid
                 GuessGrid(
-                    wordLength = state.wordLength,
-                    submittedGuesses = state.guesses,
-                    candidateHistory = state.candidateHistory,
-                    currentInput = state.currentInput,
-                    isActive = state.isActive,
+                    wordLength         = state.wordLength,
+                    submittedGuesses   = state.guesses,
+                    candidateHistory   = state.candidateHistory,
+                    currentInput       = state.currentInput,
+                    isActive           = state.isActive,
                     showCandidateCount = state.showCandidateCount,
-                    isShaking = shaking
+                    isShaking          = shaking
                 )
 
-                // Result card
                 AnimatedVisibility(
                     visible = !state.isActive,
                     enter   = fadeIn() + expandVertically(),
                     exit    = fadeOut() + shrinkVertically()
                 ) {
                     GameResultCard(
-                        isWon = state.isWon,
-                        guessCount = state.guessCount,
+                        isWon        = state.isWon,
+                        guessCount   = state.guessCount,
                         revealedWord = state.revealedWord,
-                        onNewGame = { vm.startNewGame() },
-                        onShare = {
-                            context.startActivity(
-                                Intent.createChooser(
-                                    Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/plain"
-                                        putExtra(Intent.EXTRA_TEXT, vm.buildShareText())
-                                    }, "Share result"
-                                )
-                            )
+                        onNewGame    = { vm.startNewGame() },
+                        onShare      = {
+                            context.startActivity(Intent.createChooser(
+                                Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, vm.buildShareText())
+                                }, "Share result"
+                            ))
                         }
                     )
                 }
 
                 Spacer(Modifier.height(4.dp))
 
-                // Keyboard
-                AbsurdleKeyboard(
-                    keyStates = state.keyboardState,
-                    onKey = vm::onKeyPress,
-                    onBackspace = vm::onBackspace,
-                    onEnter = vm::submitGuess,
-                    enabled = state.isActive,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
+                // ── Keyboard area: virtual OR phone keyboard input ───────────
+                if (state.isActive) {
+                    if (state.usePhysicalKeyboard) {
+                        PhysicalKeyboardInput(
+                            value    = state.currentInput,
+                            onChange = vm::onInputChanged,
+                            onSubmit = vm::submitGuess,
+                            hint     = "Type ${state.wordLength} letters…",
+                            accentColor = ColorPurple
+                        )
+                    } else {
+                        AbsurdleKeyboard(
+                            keyStates = state.keyboardState,
+                            onKey = vm::onKeyPress,
+                            onBackspace = vm::onBackspace,
+                            onEnter = vm::submitGuess,
+                            enabled = true,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                    }
+                }
             }
         }
     }
-
 }

@@ -148,6 +148,10 @@ class AbsurdleViewModel(application: Application) : AndroidViewModel(application
         _state.update { it.copy(showCandidateCount = !it.showCandidateCount) }
     }
 
+    fun togglePhysicalKeyboard() {
+        _state.update { it.copy(usePhysicalKeyboard = !it.usePhysicalKeyboard) }
+    }
+
     // ── UI toggles ────────────────────────────────────────────────────────────
 
     fun toggleHowTo()    { _showHowTo.value    = !_showHowTo.value }

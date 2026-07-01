@@ -26,9 +26,11 @@ fun SettingsDialog(
     wordLength: Int,
     hardMode: Boolean,
     showCandidateCount: Boolean,
+    usePhysicalKeyboard: Boolean,
     onWordLength: (Int) -> Unit,
     onHardMode: (Boolean) -> Unit,
     onToggleCandidateCount: () -> Unit,
+    onTogglePhysicalKeyboard: () -> Unit,
     onDismiss: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
@@ -111,6 +113,20 @@ fun SettingsDialog(
                     subtitle = "Displays remaining possible words after each guess",
                     checked  = showCandidateCount,
                     onToggle = { onToggleCandidateCount() }
+                )
+
+                HorizontalDivider(
+                    Modifier,
+                    DividerDefaults.Thickness,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                )
+
+                // Physical keyboard
+                ToggleRow(
+                    label    = "Use phone keyboard",
+                    subtitle = "Replaces the on-screen keyboard with your phone's own keyboard",
+                    checked  = usePhysicalKeyboard,
+                    onToggle = { onTogglePhysicalKeyboard() }
                 )
             }
         }

@@ -7,7 +7,6 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.enigma.wordnest.games.betweenle.model.Stats
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlin.text.get
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "betweenle_stats")
 
