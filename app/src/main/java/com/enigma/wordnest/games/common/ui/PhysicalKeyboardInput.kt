@@ -1,4 +1,4 @@
-package com.enigma.wordnest.games.absurdle.ui
+package com.enigma.wordnest.games.common.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,7 +21,6 @@ import androidx.compose.ui.unit.dp
 /**
  * A simple text field that accepts input from the phone's own keyboard.
  * Used when the user opts out of the virtual on-screen keyboard.
- * Package is under absurdle.ui but also imported directly by chromaword.ui.
  */
 @Composable
 fun PhysicalKeyboardInput(

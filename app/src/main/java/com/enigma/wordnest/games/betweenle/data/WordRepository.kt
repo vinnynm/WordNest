@@ -41,20 +41,24 @@ class WordRepository(context: Context) {
      *   in the sorted list
      */
     fun randomBoundaryPair(minGap: Int = 3, maxGap: Int = 200): Pair<String, String> {
-        require(sortedWords.size > maxGap + 2) { "Dictionary too small" }
+        if (sortedWords.size < 2) return Pair("", "")
+        
+        val actualMax = maxGap.coerceAtMost(sortedWords.size - 2).coerceAtLeast(1)
+        val actualMin = minGap.coerceAtMost(actualMax)
+
         var attempts = 0
         while (attempts < 1000) {
             val iA = sortedWords.indices.random()
-            val gap = (minGap..maxGap).random()
+            val gap = (actualMin..actualMax).random()
             val iB = iA + gap + 1
             if (iB < sortedWords.size) {
                 return Pair(sortedWords[iA], sortedWords[iB])
             }
             attempts++
         }
-        // fallback: use fixed spread
-        val iA = sortedWords.size / 4
-        val iB = iA + 50
+        // fallback: use simple spread
+        val iA = 0
+        val iB = (sortedWords.size - 1).coerceAtLeast(1)
         return Pair(sortedWords[iA], sortedWords[iB])
     }
 

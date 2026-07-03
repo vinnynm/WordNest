@@ -75,8 +75,8 @@ fun HowToPlayDialog(onDismiss: () -> Unit) {
                 }
 
                 Section("Hard mode") {
-                    "The engine avoids giving you an all-green response unless it has no other choice, " +
-                    "making the game even harder."
+                    "Any revealed hints must be used in subsequent guesses. Additionally, " +
+                    "the engine avoids giving you an all-green response unless it has no other choice."
                 }
 
                 Section("Goal") {

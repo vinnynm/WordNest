@@ -244,7 +244,11 @@ class ScrabbleGameViewModel(application: Application) : AndroidViewModel(applica
 
     fun clearMessage() { _uiState.update { it.copy(lastPlayMessage = "", lastPlayScore = 0) } }
     fun downloadUpdate() {
-        TODO("Not yet implemented")
+        viewModelScope.launch {
+            _uiState.update { it.copy(isDownloading = true) }
+            delay(2000) // Simulating download
+            _uiState.update { it.copy(isDownloading = false, updateAvailable = null) }
+        }
     }
 }
 
@@ -270,27 +274,65 @@ data class GameUiState(
     val showBlankPicker: Boolean = false,
     val pendingBlankPickerRow: Int = -1,
     val pendingBlankPickerCol: Int = -1,
-    val isDownloading: Boolean =false,
-    val updateAvailable: Boolean = false
+    val isDownloading: Boolean = false,
+    val updateAvailable: String? = null
 ) {
 
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is GameUiState) return false
-        return gameState == other.gameState && currentPlayer == other.currentPlayer &&
-                player1 == other.player1 && player2 == other.player2 &&
-                board.contentDeepEquals(other.board) && placedThisTurn == other.placedThisTurn &&
-                selectedTile == other.selectedTile && lastPlayMessage == other.lastPlayMessage &&
-                lastPlayScore == other.lastPlayScore && isDictionaryLoaded == other.isDictionaryLoaded &&
-                isLoading == other.isLoading && errorMessage == other.errorMessage &&
-                dictionarySize == other.dictionarySize && bagSize == other.bagSize &&
-                isVsAi == other.isVsAi && aiDifficulty == other.aiDifficulty &&
-                isAiThinking == other.isAiThinking && canResume == other.canResume &&
-                showBlankPicker == other.showBlankPicker && pendingBlankPickerRow == other.pendingBlankPickerRow &&
-                pendingBlankPickerCol == other.pendingBlankPickerCol
+        return gameState == other.gameState &&
+                currentPlayer == other.currentPlayer &&
+                player1 == other.player1 &&
+                player2 == other.player2 &&
+                board.contentDeepEquals(other.board) &&
+                placedThisTurn == other.placedThisTurn &&
+                selectedTile == other.selectedTile &&
+                lastPlayMessage == other.lastPlayMessage &&
+                lastPlayScore == other.lastPlayScore &&
+                isDictionaryLoaded == other.isDictionaryLoaded &&
+                isLoading == other.isLoading &&
+                errorMessage == other.errorMessage &&
+                dictionarySize == other.dictionarySize &&
+                bagSize == other.bagSize &&
+                isVsAi == other.isVsAi &&
+                aiDifficulty == other.aiDifficulty &&
+                isAiThinking == other.isAiThinking &&
+                canResume == other.canResume &&
+                showBlankPicker == other.showBlankPicker &&
+                pendingBlankPickerRow == other.pendingBlankPickerRow &&
+                pendingBlankPickerCol == other.pendingBlankPickerCol &&
+                isDownloading == other.isDownloading &&
+                updateAvailable == other.updateAvailable
     }
-    override fun hashCode(): Int = javaClass.hashCode()
+
+    override fun hashCode(): Int {
+        var result = gameState.hashCode()
+        result = 31 * result + currentPlayer
+        result = 31 * result + player1.hashCode()
+        result = 31 * result + player2.hashCode()
+        result = 31 * result + board.contentDeepHashCode()
+        result = 31 * result + placedThisTurn.hashCode()
+        result = 31 * result + (selectedTile ?: 0)
+        result = 31 * result + lastPlayMessage.hashCode()
+        result = 31 * result + lastPlayScore
+        result = 31 * result + isDictionaryLoaded.hashCode()
+        result = 31 * result + isLoading.hashCode()
+        result = 31 * result + (errorMessage?.hashCode() ?: 0)
+        result = 31 * result + dictionarySize
+        result = 31 * result + bagSize
+        result = 31 * result + isVsAi.hashCode()
+        result = 31 * result + (aiDifficulty?.hashCode() ?: 0)
+        result = 31 * result + isAiThinking.hashCode()
+        result = 31 * result + canResume.hashCode()
+        result = 31 * result + showBlankPicker.hashCode()
+        result = 31 * result + pendingBlankPickerRow
+        result = 31 * result + pendingBlankPickerCol
+        result = 31 * result + isDownloading.hashCode()
+        result = 31 * result + (updateAvailable?.hashCode() ?: 0)
+        return result
+    }
 }
 
 data class LexiconSaveData(

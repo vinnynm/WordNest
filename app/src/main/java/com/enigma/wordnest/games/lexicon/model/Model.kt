@@ -1,5 +1,7 @@
 package com.enigma.wordnest.games.lexicon.model
 
+import java.util.Collections
+
 data class Tile(val letter: Char, val points: Int, val isBlank: Boolean = false)
 
 data class PlacedTile(val row: Int, val col: Int, val letter: Char, val points: Int, val isBlank: Boolean)
@@ -24,42 +26,12 @@ class ScrabbleGame {
     var isGameOver = false
     var consecutiveSkips = 0
 
-    private val letterDistribution = mapOf(
-        'A' to 9, 'B' to 2, 'C' to 2, 'D' to 4, 'E' to 12, 'F' to 2, 'G' to 3,
-        'H' to 2, 'I' to 9, 'J' to 1, 'K' to 1, 'L' to 4, 'M' to 2, 'N' to 6,
-        'O' to 8, 'P' to 2, 'Q' to 1, 'R' to 6, 'S' to 4, 'T' to 6, 'U' to 4,
-        'V' to 2, 'W' to 2, 'X' to 1, 'Y' to 2, 'Z' to 1, '?' to 2
-    )
-
-    private val letterValues = mapOf(
-        'A' to 1, 'B' to 3, 'C' to 3, 'D' to 2, 'E' to 1, 'F' to 4, 'G' to 2,
-        'H' to 4, 'I' to 1, 'J' to 8, 'K' to 5, 'L' to 1, 'M' to 3, 'N' to 1,
-        'O' to 1, 'P' to 3, 'Q' to 10, 'R' to 1, 'S' to 1, 'T' to 1, 'U' to 1,
-        'V' to 4, 'W' to 4, 'X' to 8, 'Y' to 4, 'Z' to 10, '?' to 0
-    )
-
-    private val premiumSquares = mutableMapOf<String, String>()
+    private val premiumSquares = BoardConfig.buildPremiumMap()
     var bag = mutableListOf<Char>()
     private var largeDictionary = emptySet<String>()
     private var dictionary = emptySet<String>()
 
-    init { initPremiumSquares() }
-
     fun getBagSize(): Int = bag.size
-
-    private fun initPremiumSquares() {
-        listOf(0 to 0, 0 to 7, 0 to 14, 7 to 0, 7 to 14, 14 to 0, 14 to 7, 14 to 14)
-            .forEach { premiumSquares["${it.first},${it.second}"] = "TW" }
-        listOf(1 to 1, 2 to 2, 3 to 3, 4 to 4, 10 to 10, 11 to 11, 12 to 12, 13 to 13,
-            1 to 13, 2 to 12, 3 to 11, 4 to 10, 10 to 4, 11 to 3, 12 to 2, 13 to 1)
-            .forEach { premiumSquares["${it.first},${it.second}"] = "DW" }
-        listOf(1 to 5, 1 to 9, 5 to 1, 5 to 5, 5 to 9, 5 to 13, 9 to 1, 9 to 5, 9 to 9, 9 to 13, 13 to 5, 13 to 9)
-            .forEach { premiumSquares["${it.first},${it.second}"] = "TL" }
-        listOf(0 to 3, 0 to 11, 2 to 6, 2 to 8, 3 to 0, 3 to 7, 3 to 14, 6 to 2, 6 to 6, 6 to 8,
-            6 to 12, 7 to 3, 7 to 11, 8 to 2, 8 to 6, 8 to 8, 8 to 12, 11 to 0, 11 to 7,
-            11 to 14, 12 to 6, 12 to 8, 14 to 3, 14 to 11)
-            .forEach { premiumSquares["${it.first},${it.second}"] = "DL" }
-    }
 
     fun updateDictionary(newDict: Set<String>) { dictionary = newDict }
     fun updateLargeDictionary(newDict: Set<String>) { largeDictionary = newDict }
@@ -79,13 +51,13 @@ class ScrabbleGame {
 
     private fun buildBag(): MutableList<Char> {
         val newBag = mutableListOf<Char>()
-        letterDistribution.forEach { (letter, count) -> repeat(count) { newBag.add(letter) } }
+        BoardConfig.letterDistribution.forEach { (letter, count) -> repeat(count) { newBag.add(letter) } }
         return newBag.shuffled().toMutableList()
     }
 
     fun placeTile(row: Int, col: Int, letter: Char): Boolean {
         if (board[row][col] != null || placedThisTurn.any { it.row == row && it.col == col }) return false
-        val points = letterValues[letter] ?: 0
+        val points = BoardConfig.letterValues[letter] ?: 0
         placedThisTurn.add(PlacedTile(row, col, letter, points, letter == '?'))
         val player = players[currentPlayer]; val newRack = player.rack.toMutableList()
         val index = newRack.indexOf(letter)
@@ -216,7 +188,7 @@ class ScrabbleGame {
     fun shuffleRack() { val p = players[currentPlayer]; players[currentPlayer] = p.copy(rack = p.rack.shuffled()) }
     private fun nextTurn() { currentPlayer = 1 - currentPlayer }
     private fun endGame() {
-        players.forEachIndexed { i, p -> val penalty = p.rack.sumOf { letterValues[it] ?: 0 }; players[i] = p.copy(score = maxOf(0, p.score - penalty)) }
+        players.forEachIndexed { i, p -> val penalty = p.rack.sumOf { BoardConfig.letterValues[it] ?: 0 }; players[i] = p.copy(score = maxOf(0, p.score - penalty)) }
         isGameOver = true
     }
     fun reset() {

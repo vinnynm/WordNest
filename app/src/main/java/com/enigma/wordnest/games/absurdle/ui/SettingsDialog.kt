@@ -96,7 +96,7 @@ fun SettingsDialog(
                 // Hard mode
                 ToggleRow(
                     label    = "Hard mode",
-                    subtitle = "Engine avoids winning immediately unless forced",
+                    subtitle = "Hints must be used; engine avoids winning immediately",
                     checked  = hardMode,
                     onToggle = onHardMode
                 )

@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.enigma.wordnest.games.absurdle.data.WordRepository
 import com.enigma.wordnest.games.absurdle.model.AbsurdleEngine
 import com.enigma.wordnest.games.absurdle.model.AbsurdleState
+import com.enigma.wordnest.games.absurdle.model.GameOverReason
+import com.enigma.wordnest.games.absurdle.model.ScoredGuess
 import com.enigma.wordnest.games.absurdle.model.TileColor
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -110,6 +112,14 @@ class AbsurdleViewModel(application: Application) : AndroidViewModel(application
             return
         }
 
+        if (s.hardMode) {
+            val hardModeError = validateHardMode(guess, s.guesses)
+            if (hardModeError != null) {
+                _state.update { it.copy(errorMessage = hardModeError) }
+                return
+            }
+        }
+
         // Adversarial engine picks the worst response
         val result = AbsurdleEngine.process(guess, s.candidates, s.hardMode)
 
@@ -122,8 +132,12 @@ class AbsurdleViewModel(application: Application) : AndroidViewModel(application
                 guesses           = it.guesses + result.scoredGuess,
                 currentInput      = "",
                 isWon             = result.isWon,
-                revealedWord      = if (result.isWon) result.committedWord
-                                    else result.committedWord?.let { w -> if (result.newCandidates.size == 1) w else null },
+                gameOverReason    = when {
+                    result.isWon -> GameOverReason.WON
+                    result.newCandidates.size == 1 -> GameOverReason.FORCED_REVEAL
+                    else -> null
+                },
+                revealedWord      = result.committedWord ?: it.revealedWord,
                 keyboardState     = newKeyboard,
                 candidateHistory  = newHistory,
                 errorMessage      = null,
@@ -137,7 +151,7 @@ class AbsurdleViewModel(application: Application) : AndroidViewModel(application
         val s = _state.value
         if (!s.isActive) return
         val revealed = s.candidates.minOrNull() ?: return
-        _state.update { it.copy(revealedWord = revealed, isWon = false) }
+        _state.update { it.copy(revealedWord = revealed, isWon = false, gameOverReason = GameOverReason.GAVE_UP) }
     }
 
     // ── Settings ──────────────────────────────────────────────────────────────
@@ -150,6 +164,30 @@ class AbsurdleViewModel(application: Application) : AndroidViewModel(application
 
     fun togglePhysicalKeyboard() {
         _state.update { it.copy(usePhysicalKeyboard = !it.usePhysicalKeyboard) }
+    }
+
+    private fun validateHardMode(guess: String, history: List<ScoredGuess>): String? {
+        for (prev in history) {
+            for (i in prev.letters.indices) {
+                val hint = prev.letters[i]
+                if (hint.color == TileColor.GREEN) {
+                    if (guess[i] != hint.char) {
+                        return "${hint.char.uppercase()} must be at position ${i + 1}"
+                    }
+                }
+            }
+            // For yellows, we check if the guess contains at least as many of that char
+            // as were revealed as yellow+green in the previous guess.
+            val yellowOrGreenLetters = prev.letters.filter { it.color == TileColor.YELLOW || it.color == TileColor.GREEN }
+            val counts = yellowOrGreenLetters.groupBy { it.char }.mapValues { it.value.size }
+            for ((char, count) in counts) {
+                val guessCount = guess.count { it == char }
+                if (guessCount < count) {
+                    return "Must contain ${count}x ${char.uppercase()}"
+                }
+            }
+        }
+        return null
     }
 
     // ── UI toggles ────────────────────────────────────────────────────────────

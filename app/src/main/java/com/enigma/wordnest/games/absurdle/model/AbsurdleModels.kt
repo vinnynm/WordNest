@@ -28,6 +28,8 @@ private fun TileColor.code() = when (this) {
     TileColor.EMPTY  -> "_"
 }
 
+enum class GameOverReason { WON, GAVE_UP, FORCED_REVEAL }
+
 // ── Game state ────────────────────────────────────────────────────────────────
 
 data class AbsurdleState(
@@ -39,6 +41,7 @@ data class AbsurdleState(
     val isWon: Boolean               = false,
     /** The word the game was forced to commit to (revealed on win or give-up) */
     val revealedWord: String?        = null,
+    val gameOverReason: GameOverReason? = null,
     val errorMessage: String?        = null,
     val keyboardState: Map<Char, TileColor> = emptyMap(),
     /** How many candidates remained when each guess was made (for transparency) */
@@ -49,7 +52,7 @@ data class AbsurdleState(
     val usePhysicalKeyboard: Boolean = false
 ) {
     val guessCount: Int get() = guesses.size
-    val isActive: Boolean get() = !isWon && revealedWord == null
+    val isActive: Boolean get() = gameOverReason == null
 }
 
 // ── Word-length options ───────────────────────────────────────────────────────

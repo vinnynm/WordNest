@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.enigma.wordnest.games.absurdle.ui.AbsurdleKeyboard
 import com.enigma.wordnest.games.absurdle.ui.CandidateCountBar
+import com.enigma.wordnest.games.common.ui.PhysicalKeyboardInput
 import com.enigma.wordnest.games.absurdle.ui.theme.AbsurdleTheme
 import com.enigma.wordnest.games.absurdle.ui.theme.ColorPurple
 import com.enigma.wordnest.games.absurdle.ui.theme.ColorPurpleLight
@@ -179,7 +180,7 @@ fun AbsurdleGameScreen(vm: AbsurdleViewModel = viewModel()) {
                     exit    = fadeOut() + shrinkVertically()
                 ) {
                     GameResultCard(
-                        isWon        = state.isWon,
+                        reason       = state.gameOverReason,
                         guessCount   = state.guessCount,
                         revealedWord = state.revealedWord,
                         onNewGame    = { vm.startNewGame() },

@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.enigma.wordnest.games.chromaword.ui.ChromaKeyboard
-import com.enigma.wordnest.games.absurdle.ui.PhysicalKeyboardInput
+import com.enigma.wordnest.games.common.ui.PhysicalKeyboardInput
 import com.enigma.wordnest.games.chromaword.ui.theme.ChromaWordTheme
 import com.enigma.wordnest.games.chromaword.ui.theme.ColorGreen
 import com.enigma.wordnest.games.chromaword.viewmodel.GameViewModel
