@@ -12,7 +12,7 @@ class OptimizedWordRepository(private val context: Context) {
     private val largeLibrary: Set<String> by lazy {
         val words = mutableSetOf<String>()
         try {
-            context.resources.openRawResource(R.raw.large_wordlib).use { inputStream ->
+            context.resources.openRawResource(R.raw.largelib_gb_augmented).use { inputStream ->
                 JsonReader(InputStreamReader(inputStream, "UTF-8")).use { reader ->
                     reader.beginObject()
                     while (reader.hasNext()) {
@@ -95,6 +95,8 @@ class OptimizedWordRepository(private val context: Context) {
         wordsByFirstLetter[letter.uppercaseChar()] ?: emptyList()
 
     fun getAllWords(): Set<String> = allOfTheWords
+
+    fun contains(string: String) = allOfTheWords.contains(string)
 
     fun isWordValid(word: String): Boolean = allOfTheWords.contains(word.uppercase())
 

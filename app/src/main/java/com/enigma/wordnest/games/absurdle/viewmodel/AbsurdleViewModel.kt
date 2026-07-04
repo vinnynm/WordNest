@@ -3,13 +3,16 @@ package com.enigma.wordnest.games.absurdle.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.enigma.wordnest.games.absurdle.data.WordRepository
+import com.enigma.fluffyinc.apps.games.absurdle.data.WordRepository
 import com.enigma.wordnest.games.absurdle.model.AbsurdleEngine
 import com.enigma.wordnest.games.absurdle.model.AbsurdleState
 import com.enigma.wordnest.games.absurdle.model.GameOverReason
 import com.enigma.wordnest.games.absurdle.model.ScoredGuess
 import com.enigma.wordnest.games.absurdle.model.TileColor
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class AbsurdleViewModel(application: Application) : AndroidViewModel(application) {
@@ -108,6 +111,7 @@ class AbsurdleViewModel(application: Application) : AndroidViewModel(application
             return
         }
         if (!wordRepo.contains(guess)) {
+
             _state.update { it.copy(errorMessage = "\"$guess\" not in word list") }
             return
         }

@@ -39,24 +39,32 @@ class WordRepository(context: Context) {
      * - wordA < wordB alphabetically
      * - there is at least [minGap] and at most [maxGap] words between them
      *   in the sorted list
+     *
+     * Gracefully degrades on small dictionaries instead of throwing: the
+     * requested gap range is scaled down to whatever the word list can
+     * actually support, so a smaller custom `wordlib500.json` (see README)
+     * won't crash `startNewGame()`.
      */
     fun randomBoundaryPair(minGap: Int = 3, maxGap: Int = 200): Pair<String, String> {
-        if (sortedWords.size < 2) return Pair("", "")
-        
-        val actualMax = maxGap.coerceAtMost(sortedWords.size - 2).coerceAtLeast(1)
-        val actualMin = minGap.coerceAtMost(actualMax)
+        require(sortedWords.size >= 2) { "Dictionary needs at least 2 words" }
+
+        // Scale the requested gap range down to whatever the dictionary can
+        // actually support, instead of throwing when maxGap doesn't fit.
+        val maxPossibleGap = sortedWords.size - 2
+        val effectiveMaxGap = minOf(maxGap, maxPossibleGap).coerceAtLeast(0)
+        val effectiveMinGap = minOf(minGap, effectiveMaxGap).coerceAtLeast(0)
 
         var attempts = 0
         while (attempts < 1000) {
             val iA = sortedWords.indices.random()
-            val gap = (actualMin..actualMax).random()
+            val gap = (effectiveMinGap..effectiveMaxGap).random()
             val iB = iA + gap + 1
             if (iB < sortedWords.size) {
                 return Pair(sortedWords[iA], sortedWords[iB])
             }
             attempts++
         }
-        // fallback: use simple spread
+        // Fallback: fixed spread, clamped to the size of the dictionary.
         val iA = 0
         val iB = (sortedWords.size - 1).coerceAtLeast(1)
         return Pair(sortedWords[iA], sortedWords[iB])
