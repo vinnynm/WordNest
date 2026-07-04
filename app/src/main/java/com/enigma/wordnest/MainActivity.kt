@@ -13,8 +13,11 @@ import com.enigma.wordnest.games.lexicon.ui.ScrabbleGameViewModel
 import com.enigma.wordnest.ui.HomeScreen
 import com.enigma.wordnest.ui.theme.WordNestTheme
 import com.enigma.wordnest.games.absurdle.ui.AbsurdleGameScreen
+import com.enigma.wordnest.games.absurdman.ui.AbsurdmanGameScreen
+import com.enigma.wordnest.games.absurdman.ui.AbsurdmanStartScreen
 import com.enigma.wordnest.games.betweenle.ui.BetweenleGameScreen
 import com.enigma.wordnest.games.chromaword.ui.ChromaWordGameScreen
+import com.enigma.wordnest.games.wordladder.ui.WordLadderGameScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,6 +44,8 @@ fun WordNestApp(scrabbleGameViewModel: ScrabbleGameViewModel) {
             composable("absurdle") { AbsurdleGameScreen() }
             composable("chromaword") { ChromaWordGameScreen() }
             composable("lexicon") { ScrabbleGameApp(viewModel = scrabbleGameViewModel) }
+            composable("Hangman") { AbsurdmanGameScreen() }
+            composable("WordLadder") { WordLadderGameScreen() }
         }
     }
 }

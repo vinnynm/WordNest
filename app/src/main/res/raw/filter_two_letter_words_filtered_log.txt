@@ -1,0 +1,24 @@
+01:17:22 [INFO] Starting two-letter word filter run
+01:17:22 [INFO] Timestamp: 2026-07-04T01:17:22.825953
+01:17:22 [INFO] Input file: D:\AndroidApps\WordNest\app\src\main\res\raw\filter_two_letter_words.py
+01:17:22 [INFO] Output file: D:\AndroidApps\WordNest\app\src\main\res\raw\filter_two_letter_words_filtered.json
+01:17:22 [INFO] Log file: D:\AndroidApps\WordNest\app\src\main\res\raw\filter_two_letter_words_filtered_log.txt
+01:17:22 [INFO] Valid two-letter word list size: 114
+01:17:22 [INFO] Reading input JSON: D:\AndroidApps\WordNest\app\src\main\res\raw\filter_two_letter_words.py
+01:17:22 [ERROR] Run failed with an error: Extra data: line 1 column 3 (char 2)
+Traceback (most recent call last):
+  File "D:\AndroidApps\WordNest\app\src\main\res\raw\filter_two_letter_words.py", line 191, in main
+    data = load_json(input_path)
+  File "D:\AndroidApps\WordNest\app\src\main\res\raw\filter_two_letter_words.py", line 88, in load_json
+    data = json.load(f)
+  File "C:\Python313\Lib\json\__init__.py", line 293, in load
+    return loads(fp.read(),
+        cls=cls, object_hook=object_hook,
+        parse_float=parse_float, parse_int=parse_int,
+        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
+  File "C:\Python313\Lib\json\__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "C:\Python313\Lib\json\decoder.py", line 348, in decode
+    raise JSONDecodeError("Extra data", s, end)
+json.decoder.JSONDecodeError: Extra data: line 1 column 3 (char 2)

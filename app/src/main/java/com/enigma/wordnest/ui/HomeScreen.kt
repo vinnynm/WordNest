@@ -32,6 +32,14 @@ private val games = listOf(
     GameEntry("Absurdle", "😈", "The Wordle that fights back", NestPurple, "absurdle"),
     GameEntry("ChromaWord", "🌈", "Wordle, but every letter tells a richer story", NestTeal, "chromaword"),
     GameEntry("Lexicon", "📜", "Two-player word strategy, vs a real AI", NestPurple, "lexicon"),
+    GameEntry("WordLadder", "📜", "WordLadder", NestPink, "WordLadder"),
+    GameEntry(
+        title = "HangMan",
+        emoji = "🪂",
+        tagline = "Hangman",
+        accent = NestTeal,
+        route="Hangman"
+    ) 
 )
 
 @OptIn(ExperimentalMaterial3Api::class)

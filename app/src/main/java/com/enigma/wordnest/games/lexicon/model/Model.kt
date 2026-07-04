@@ -1,5 +1,6 @@
 package com.enigma.wordnest.games.lexicon.model
 
+import com.enigma.wordnest.games.lexicon.model.BoardConfig.letterValues
 import java.util.Collections
 
 data class Tile(val letter: Char, val points: Int, val isBlank: Boolean = false)
@@ -57,11 +58,14 @@ class ScrabbleGame {
 
     fun placeTile(row: Int, col: Int, letter: Char): Boolean {
         if (board[row][col] != null || placedThisTurn.any { it.row == row && it.col == col }) return false
-        val points = BoardConfig.letterValues[letter] ?: 0
-        placedThisTurn.add(PlacedTile(row, col, letter, points, letter == '?'))
-        val player = players[currentPlayer]; val newRack = player.rack.toMutableList()
-        val index = newRack.indexOf(letter)
-        if (index != -1) { newRack.removeAt(index); players[currentPlayer] = player.copy(rack = newRack) }
+        val player = players[currentPlayer]
+        val newRack = player.rack.toMutableList()
+        val index = newRack.indexOf(letter).let { if (it == -1) newRack.indexOf('?') else it }
+        if (index == -1) return false          // ← reject instead of silently succeeding
+        val isBlank = newRack[index] == '?'
+        newRack.removeAt(index)
+        players[currentPlayer] = player.copy(rack = newRack)
+        placedThisTurn.add(PlacedTile(row, col, letter, if (isBlank) 0 else letterValues[letter] ?: 0, isBlank))
         return true
     }
 
