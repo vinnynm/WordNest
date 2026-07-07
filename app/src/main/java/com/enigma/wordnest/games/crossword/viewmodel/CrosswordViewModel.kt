@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.core.content.edit
 
 /**
  * [clueSource] defaults to a WordNet-JSON-backed source (see WordNetJsonClueSource),
@@ -278,12 +279,12 @@ class CrosswordViewModel(application: Application) : AndroidViewModel(applicatio
             selectedCol = selCol,
             selectedDirection = _selectedDirection.value
         )
-        prefs.edit().putString(KEY_SAVE, gson.toJson(save)).apply()
+        prefs.edit { putString(KEY_SAVE, gson.toJson(save))}
         _canResume.value = true
     }
 
     private fun clearSave() {
-        prefs.edit().remove(KEY_SAVE).apply()
+        prefs.edit { remove(KEY_SAVE) }
         _canResume.value = false
     }
 

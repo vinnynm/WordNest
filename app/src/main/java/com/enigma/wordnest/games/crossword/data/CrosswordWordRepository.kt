@@ -8,6 +8,7 @@ import com.google.gson.stream.JsonReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.InputStreamReader
+import androidx.core.content.edit
 
 /**
  * Loads the WordNet-derived dictionary. First launch (or after a content-version
@@ -45,7 +46,7 @@ class CrosswordWordRepository(private val context: Context) {
             // Room has a per-statement variable limit; chunk the bulk insert so a
             // 150k+ word dictionary doesn't blow past it in one call.
             fresh.chunked(500).forEach { chunk -> dao.insertAll(chunk) }
-            prefs.edit().putInt(KEY_DB_VERSION, DICTIONARY_CONTENT_VERSION).apply()
+            prefs.edit { putInt(KEY_DB_VERSION, DICTIONARY_CONTENT_VERSION) }
             fresh
         }
 
