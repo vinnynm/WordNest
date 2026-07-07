@@ -40,7 +40,9 @@ private val games = listOf(
         accent = NestTeal,
         route = "Hangman"
     ),
-    GameEntry("Ladder Claim", "🏗️", "Claim territory by playing near ladder-legal words", NestPurple, "ladder_claim")
+    GameEntry("Ladder Claim", "🏗️", "Claim territory by playing near ladder-legal words", NestPurple, "ladder_claim"),
+    GameEntry("Crossword", "📰", "A fresh generated puzzle every time", NestTeal, "crossword"),
+    GameEntry("Codeword", "🔢", "Decode the grid, one number at a time", NestPurple, "codeword")
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
