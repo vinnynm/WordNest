@@ -37,7 +37,8 @@ fun CrosswordGameScreen(vm: CrosswordViewModel = viewModel()) {
         val playerState    by vm.playerState.collectAsStateWithLifecycle()
         val selectedCell    by vm.selectedCell.collectAsStateWithLifecycle()
         val selectedDirection by vm.selectedDirection.collectAsStateWithLifecycle()
-        val errorMessage   by vm.errorMessage.collectAsStateWithLifecycle()
+        val canResume      by vm.canResume.collectAsStateWithLifecycle()
+        val stats          by vm.stats.collectAsStateWithLifecycle()
 
         Scaffold(
             topBar = {
@@ -70,7 +71,11 @@ fun CrosswordGameScreen(vm: CrosswordViewModel = viewModel()) {
             if (p == null) {
                 CrosswordStartScreen(
                     isGenerating = isGenerating,
+                    canResume = canResume,
+                    puzzlesCompleted = stats.puzzlesCompleted,
+                    currentStreak = stats.currentStreak,
                     onStart = { diff -> vm.startNewGame(diff) },
+                    onResume = { vm.resumeGame() },
                     modifier = Modifier.fillMaxSize().padding(padding)
                 )
                 return@Scaffold
@@ -136,7 +141,11 @@ fun CrosswordGameScreen(vm: CrosswordViewModel = viewModel()) {
 @Composable
 private fun CrosswordStartScreen(
     isGenerating: Boolean,
+    canResume: Boolean,
+    puzzlesCompleted: Int,
+    currentStreak: Int,
     onStart: (CrosswordDifficulty) -> Unit,
+    onResume: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -146,8 +155,18 @@ private fun CrosswordStartScreen(
     ) {
         Text("CROSSWORD", fontSize = 40.sp, fontWeight = FontWeight.Black,
             color = ColorAccent, letterSpacing = 2.sp)
-        Text("Generated fresh from the dictionary", fontSize = 14.sp, color = ColorSubtle,
-            modifier = Modifier.padding(bottom = 40.dp))
+        Text("Generated fresh from WordNet", fontSize = 14.sp, color = ColorSubtle,
+            modifier = Modifier.padding(bottom = 32.dp))
+
+        if (canResume) {
+            Button(
+                onClick = onResume,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = ColorAccent)
+            ) {
+                Text("RESUME PUZZLE", fontWeight = FontWeight.Black, color = Color.Black)
+            }
+        }
 
         CrosswordDifficulty.entries.forEach { diff ->
             Box(
@@ -160,7 +179,7 @@ private fun CrosswordStartScreen(
                     .padding(18.dp)
             ) {
                 Column {
-                    Text(diff.label, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(if (canResume) "New ${diff.label} puzzle" else diff.label, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Text("${diff.gridSize}×${diff.gridSize} grid", fontSize = 12.sp, color = ColorSubtle)
                 }
             }
@@ -171,6 +190,14 @@ private fun CrosswordStartScreen(
             CircularProgressIndicator(color = ColorAccent)
             Spacer(Modifier.height(8.dp))
             Text("Generating puzzle…", fontSize = 12.sp, color = ColorSubtle)
+        }
+
+        if (puzzlesCompleted > 0) {
+            Spacer(Modifier.height(24.dp))
+            Text(
+                "$puzzlesCompleted solved  ·  streak $currentStreak",
+                fontSize = 12.sp, color = ColorSubtle
+            )
         }
     }
 }

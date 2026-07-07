@@ -11,6 +11,7 @@ gson                    = "2.13.1"
 junit                   = "4.13.2"
 junitExt                = "1.2.1"
 espresso                = "3.6.1"
+ksp = "2.1.21-2.0.1"
 
 [libraries]
 # Compose BOM — import this as a platform dependency, then omit versions below
@@ -37,7 +38,9 @@ junit                       = { group = "junit",                          name =
 androidx-junit-ext          = { group = "androidx.test.ext",              name = "junit",                     version.ref = "junitExt" }
 androidx-espresso-core      = { group = "androidx.test.espresso",         name = "espresso-core",             version.ref = "espresso" }
 
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android      = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose      = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
