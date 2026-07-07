@@ -58,7 +58,9 @@ object WordLadderSolver {
             for (neighbor in adjacency[current].orEmpty()) {
                 if (neighbor in visited) continue
                 visited += neighbor
-                prev[neighbor] = current
+                if (current != null) {
+                    prev[neighbor] = current
+                }
                 if (neighbor == target) {
                     val path = mutableListOf(neighbor)
                     var cur = neighbor

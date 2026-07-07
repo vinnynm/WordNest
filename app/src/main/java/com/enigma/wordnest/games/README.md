@@ -1,61 +1,42 @@
 # WordNest 💌
 
-A small, standalone Android app with three word games, pulled out of a bigger
-project so they can live on their own:
+A standalone Android app featuring a collection of seven curated word games, unified under a modern Compose-based architecture.
 
-- **Betweenle** — guess a word that falls alphabetically between two boundary words
-- **Absurdle** — the adversarial Wordle that dodges your guesses as long as it can
-- **ChromaWord** — Wordle with a richer 6-colour feedback system
+## The Games
 
-## Opening the project
+- **Betweenle** — Guess a word that falls alphabetically between two shifting boundary words.
+- **Absurdle** — The adversarial Wordle. It doesn't have a secret word; it actively dodges your guesses by shrinking its word pool to keep you guessing as long as possible.
+- **ChromaWord** — Wordle with a rich 6-color feedback system that provides granular hints about character proximity and position.
+- **Lexicon** — A deep, two-player word strategy game (Scrabble-like) featuring a challenging AI opponent and local pass-and-play.
+- **WordLadder** — A classic puzzle where you transform one word into another by changing exactly one letter at a time.
+- **Hangman** — (Absurdman) An adversarial take on the classic letter-guessing game.
+- **Ladder Claim** — A strategic territory control game where you "claim" board space by building valid word ladders.
 
-1. Unzip this folder anywhere.
-2. Open it in **Android Studio** (File → Open → select the `wordnest` folder).
-3. Android Studio will offer to generate the Gradle wrapper if it's missing —
-   accept that prompt (or in *Settings → Build Tools → Gradle*, set "Use Gradle
-   from" to the IDE's bundled Gradle). The `gradlew` script itself wasn't
-   included since it ships as a binary jar I can't hand-write — Studio
-   regenerates it automatically on first sync.
-4. Sync, then run on a device or emulator (minSdk 26 / Android 8.0+).
+## Opening the Project
 
-## About the dictionary
+1. Open the root folder in **Android Studio**.
+2. Android Studio will offer to generate the Gradle wrapper or sync the project — accept the prompt.
+3. Once synced, run on a device or emulator (**minSdk 26 / Android 8.0+**).
 
-Each game reads its word list from `app/src/main/res/raw/wordlib500.json` —
-a single JSON object of `{"A": ["APPLE", "ANT", ...], "B": [...], ...}`.
+## About the Dictionaries
 
-I generated this one from your system's hunspell English dictionary
-(~48,000 words, lengths 3–10, with a basic profanity filter applied) since
-the original `wordlib500.json` / `largelib.json` weren't available to me —
-they live in the old app's resources and weren't part of the game source
-files you shared. **If you have the original `wordlib500.json`, just drop it
-into `res/raw/` with the same name to overwrite mine and you'll get back the
-exact original word pool.** Any JSON file with that same letter→list-of-words
-shape will work.
+The app uses an optimized repository system to manage multiple word libraries:
+- `wordlib500.json`: The primary library used for most games, indexed for fast length and letter-based lookups.
+- `largelib_gb_augmented.json`: A massive dictionary used by **Lexicon** for comprehensive word-legality checks.
 
-(Note: the old `largelib.json` / big Scrabble dictionary isn't needed here —
-only Lexicon, which you chose to leave out, used it.)
+These files are located in `app/src/main/res/raw/`. Any JSON file following the `{"LETTER": ["WORD1", "WORD2"]}` structure can be used to customize the game's vocabulary.
 
-## What changed from the original source
+## Technical Highlights
 
-- Everything now lives under the `com.enigma.wordnest` package instead of
-  being nested inside the old `fluffyinc` app.
-- Each game's `GameScreen` composable was renamed (`BetweenleGameScreen`,
-  `AbsurdleGameScreen`, `ChromaWordGameScreen`) so they're unambiguous from
-  `MainActivity`.
-- `OptimizedWordRepository` dropped the unused "large dictionary" path
-  (none of these 3 games used it), so there's only one word-list resource
-  to manage.
-- Betweenle's theme (previously oddly under `com.betweenle.game.ui.theme`)
-  now lives in the same package structure as the other two games'.
-- Added a new `HomeScreen` + `MainActivity` with Navigation Compose so you
-  land on a menu and pick a game, instead of each game being its own
-  activity buried in a bigger app.
-- Stats for Betweenle and ChromaWord still persist locally via DataStore,
-  same as before — nothing reset.
+- **Unified Architecture**: All games follow a strict MVVM pattern using Kotlin StateFlow and Jetpack Compose.
+- **Shared Components**: Unified UI infrastructure, including a generic `GameKeyboard` and `GameOverTemplate` to ensure a consistent look and feel.
+- **Hard Mode**: Absurdle features a fully enforced Hard Mode where players must respect all revealed hints while the engine actively avoids committing to a winning word.
+- **Persistence**: Statistics for all games (streaks, win rates, etc.) are persisted locally using **Jetpack DataStore**.
+- **Modern Package Structure**: Everything is organized under the `com.enigma.wordnest` namespace for clean modularity.
 
-## Renaming the app / package
+## Renaming the App / Package
 
-If you want a different app name or package id, in Android Studio:
-right-click the `com.enigma.wordnest` package → **Refactor → Rename**,
-and separately change `app_name` in `res/values/strings.xml` and
-`applicationId` in `app/build.gradle.kts`.
+To change the app name or package ID in Android Studio:
+1. Right-click the `com.enigma.wordnest` package → **Refactor → Rename**.
+2. Update `app_name` in `res/values/strings.xml`.
+3. Update `applicationId` in `app/build.gradle.kts`.

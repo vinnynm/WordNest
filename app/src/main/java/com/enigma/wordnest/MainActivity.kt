@@ -14,9 +14,9 @@ import com.enigma.wordnest.ui.HomeScreen
 import com.enigma.wordnest.ui.theme.WordNestTheme
 import com.enigma.wordnest.games.absurdle.ui.AbsurdleGameScreen
 import com.enigma.wordnest.games.absurdman.ui.AbsurdmanGameScreen
-import com.enigma.wordnest.games.absurdman.ui.AbsurdmanStartScreen
 import com.enigma.wordnest.games.betweenle.ui.BetweenleGameScreen
 import com.enigma.wordnest.games.chromaword.ui.ChromaWordGameScreen
+import com.enigma.wordnest.games.ladderclaim.ui.LadderClaimGameScreen
 import com.enigma.wordnest.games.wordladder.ui.WordLadderGameScreen
 
 class MainActivity : ComponentActivity() {
@@ -46,6 +46,7 @@ fun WordNestApp(scrabbleGameViewModel: ScrabbleGameViewModel) {
             composable("lexicon") { ScrabbleGameApp(viewModel = scrabbleGameViewModel) }
             composable("Hangman") { AbsurdmanGameScreen() }
             composable("WordLadder") { WordLadderGameScreen() }
+            composable("ladder_claim") { LadderClaimGameScreen() }
         }
     }
 }
