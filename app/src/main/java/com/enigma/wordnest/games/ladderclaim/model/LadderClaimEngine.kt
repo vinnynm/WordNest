@@ -79,24 +79,86 @@ object LadderClaimEngine {
         return words.distinctBy { it.id }
     }
 
+    // ── Cell helpers ──────────────────────────────────────────────────────
+
+    fun cellInWord(word: LadderWord, row: Int, col: Int): Boolean =
+        if (word.isHorizontal) row == word.startRow && col in word.startCol until word.startCol + word.word.length
+        else col == word.startCol && row in word.startRow until word.startRow + word.word.length
+
+    /**
+     * True only if EVERY cell in this word's span is currently unowned on the board.
+     *
+     * This is the single source of truth for "is this word neutral" for theft purposes.
+     * [LadderWord.ownerId] is NOT reliable for this check: a PARTIAL play (or, in
+     * TARGET_TILES mode, a partial reclaim) can leave a word with mixed per-tile
+     * ownership that a scalar field on LadderWord can never correctly represent —
+     * trusting that field was the root cause of the original neutral-theft bug, where
+     * a word that had already been fully/partially claimed onto the board could still
+     * be re-stolen because the word-list copy of it never got updated to reflect that.
+     */
+    fun isWordFullyNeutral(board: Array<Array<LadderTile?>>, word: LadderWord): Boolean {
+        var r = word.startRow
+        var c = word.startCol
+        for (i in word.word.indices) {
+            val tile = board[r][c] ?: return false
+            if (tile.ownerId != null) return false
+            r += if (word.isHorizontal) 0 else 1
+            c += if (word.isHorizontal) 1 else 0
+        }
+        return true
+    }
+
+    /**
+     * The single owner of [word]'s cells (ignoring [excludeCell]), or null if the word
+     * is unowned, or if ownership is mixed across its cells. Mixed ownership deliberately
+     * returns null rather than picking a majority owner — an ambiguous crossing word
+     * shouldn't be treated as cleanly "belonging to the opponent" for reclaim-eligibility
+     * purposes; only a word that is unambiguously the opponent's blocks a reclaim.
+     */
+    fun soleOwnerExcluding(board: Array<Array<LadderTile?>>, word: LadderWord, excludeCell: Pair<Int, Int>?): Int? {
+        var owner: Int? = null
+        var r = word.startRow
+        var c = word.startCol
+        for (i in word.word.indices) {
+            if (excludeCell == null || (r to c) != excludeCell) {
+                val cellOwner = board[r][c]?.ownerId
+                if (cellOwner != null) {
+                    if (owner == null) owner = cellOwner
+                    else if (owner != cellOwner) return null
+                }
+            }
+            r += if (word.isHorizontal) 0 else 1
+            c += if (word.isHorizontal) 1 else 0
+        }
+        return owner
+    }
+
     // ── Coloring ──────────────────────────────────────────────────────────
 
-    data class MatchResult(val matches: Int, val matchedIndicesInNew: Set<Int>)
+    data class MatchResult(
+        val matches: Int,
+        val matchedIndicesInNew: Set<Int>,
+        val matchedIndicesInTarget: Set<Int>
+    )
 
     /**
      * Best-alignment matching-position count between the target word and the
-     * newly played word. Same length → direct position comparison. Length
-     * differing by exactly 1 → try every insertion/deletion offset and keep
+     * newly played word. Same length -> direct position comparison. Length
+     * differing by exactly 1 -> try every insertion/deletion offset and keep
      * whichever gives the most matches (always the most generous reading).
-     * Length differing by more than 1 → no valid comparison (0 matches).
+     * Length differing by more than 1 -> no valid comparison (0 matches).
+     *
+     * Returns match indices in BOTH the new word's coordinate space and the
+     * target word's coordinate space, since OWN_TILES mode colors the new
+     * word's tiles while TARGET_TILES mode claims the target word's tiles.
      */
     fun computeMatch(target: String, new: String): MatchResult {
         val diff = new.length - target.length
         if (diff == 0) {
-            val idx = new.indices.filter { new[it] == target[it] }
-            return MatchResult(idx.size, idx.toSet())
+            val idx = new.indices.filter { new[it] == target[it] }.toSet()
+            return MatchResult(idx.size, idx, idx)
         }
-        if (abs(diff) != 1) return MatchResult(0, emptySet())
+        if (abs(diff) != 1) return MatchResult(0, emptySet(), emptySet())
 
         val newIsLonger = diff > 0
         val longer = if (newIsLonger) new else target
@@ -104,34 +166,61 @@ object LadderClaimEngine {
 
         var bestMatches = -1
         var bestSkip = 0
+        var bestMatchedShorterIdx: Set<Int> = emptySet()
         for (skip in longer.indices) {
-            var m = 0
+            val matchedJ = mutableSetOf<Int>()
             for (j in shorter.indices) {
                 val longerIdx = if (j < skip) j else j + 1
-                if (longerIdx < longer.length && shorter[j] == longer[longerIdx]) m++
+                if (longerIdx < longer.length && shorter[j] == longer[longerIdx]) matchedJ += j
             }
-            if (m > bestMatches) { bestMatches = m; bestSkip = skip }
+            if (matchedJ.size > bestMatches) {
+                bestMatches = matchedJ.size
+                bestSkip = skip
+                bestMatchedShorterIdx = matchedJ
+            }
         }
 
-        val matchedInLonger = shorter.indices.mapNotNull { j ->
+        val matchedInLonger = bestMatchedShorterIdx.mapNotNull { j ->
             val longerIdx = if (j < bestSkip) j else j + 1
-            if (longerIdx < longer.length && shorter[j] == longer[longerIdx]) longerIdx else null
+            if (longerIdx < longer.length) longerIdx else null
         }.toSet()
 
-        val matchedIndicesInNew = if (newIsLonger) matchedInLonger
-        else matchedInLonger.map { li -> if (li < bestSkip) li else li - 1 }.toSet()
+        // shorter/longer map back onto (new, target) depending on which one was longer.
+        val matchedIndicesInNew = if (newIsLonger) matchedInLonger else bestMatchedShorterIdx
+        val matchedIndicesInTarget = if (newIsLonger) bestMatchedShorterIdx else matchedInLonger
 
-        return MatchResult(bestMatches, matchedIndicesInNew)
+        return MatchResult(bestMatches, matchedIndicesInNew, matchedIndicesInTarget)
     }
 
-    /** Returns the outcome plus which indices of the *new* word should be colored. */
+    /**
+     * Returns the outcome plus which indices are eligible to be colored/claimed —
+     * in the TARGET word's coordinate space, since that's what both claim modes
+     * ultimately need (OWN_TILES mode maps its own colored cells 1:1 positionally
+     * for same-length plays; for length-differing plays callers needing the NEW
+     * word's indices should use [computeMatch] directly instead).
+     */
     fun classify(target: String, new: String, fullCreditBar: Int = 1): Pair<ColorOutcome, Set<Int>> {
-        val (matches, matchedIndices) = computeMatch(target, new)
+        val result = computeMatch(target, new)
         val l = maxOf(target.length, new.length)
         return when {
-            matches > 0 && matches >= l - fullCreditBar -> ColorOutcome.FULL to new.indices.toSet()
-            matches > 0                                 -> ColorOutcome.PARTIAL to matchedIndices
-            else                                         -> ColorOutcome.NEUTRAL to emptySet()
+            result.matches > 0 && result.matches >= l - fullCreditBar ->
+                ColorOutcome.FULL to target.indices.toSet()
+            result.matches > 0 ->
+                ColorOutcome.PARTIAL to result.matchedIndicesInTarget
+            else -> ColorOutcome.NEUTRAL to emptySet()
+        }
+    }
+
+    /** Same as [classify] but also returns the NEW word's matched indices, for OWN_TILES mode. */
+    fun classifyOwnTiles(target: String, new: String, fullCreditBar: Int = 1): Pair<ColorOutcome, Set<Int>> {
+        val result = computeMatch(target, new)
+        val l = maxOf(target.length, new.length)
+        return when {
+            result.matches > 0 && result.matches >= l - fullCreditBar ->
+                ColorOutcome.FULL to new.indices.toSet()
+            result.matches > 0 ->
+                ColorOutcome.PARTIAL to result.matchedIndicesInNew
+            else -> ColorOutcome.NEUTRAL to emptySet()
         }
     }
 }

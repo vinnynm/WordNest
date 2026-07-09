@@ -18,7 +18,12 @@ class LadderClaimGame {
     private var dictionary: Set<String> = emptySet()
     fun updateDictionary(dict: Set<String>) { dictionary = dict }
 
-    fun startGame(playerNames: List<String>, seedWord: String, variant: LadderClaimVariant = LadderClaimVariant.CLASSIC) {
+    fun startGame(
+        playerNames: List<String>,
+        seedWord: String,
+        variant: LadderClaimVariant = LadderClaimVariant.CLASSIC,
+        aiPlayerIndex: Int? = null
+    ) {
         this.variant = variant
         bag = buildBag()
         for (r in 0..14) for (c in 0..14) board[r][c] = null
@@ -30,10 +35,10 @@ class LadderClaimGame {
         }
         words += LadderWord(seedWord.uppercase(), 7, startCol, isHorizontal = true, ownerId = null)
 
-        playerNames.forEach { name ->
+        playerNames.forEachIndexed { idx, name ->
             val rack = mutableListOf<Char>()
             repeat(7) { if (bag.isNotEmpty()) rack.add(bag.removeAt(bag.size - 1)) }
-            players.add(LadderPlayer(name, rack))
+            players.add(LadderPlayer(name, rack, isAi = idx == aiPlayerIndex))
         }
         currentPlayer = 0; turnCount = 0; consecutivePasses = 0; isGameOver = false
     }
@@ -75,8 +80,7 @@ class LadderClaimGame {
 
     /** All words (settled, not this-turn placements) whose span covers this cell — for tap-to-disambiguate. */
     fun wordsThroughCell(row: Int, col: Int): List<LadderWord> = words.filter { w ->
-        if (w.isHorizontal) row == w.startRow && col in w.startCol until w.startCol + w.word.length
-        else col == w.startCol && row in w.startRow until w.startRow + w.word.length
+        LadderClaimEngine.cellInWord(w, row, col)
     }
 
     fun playWord(targetWordId: String?): LadderMoveResult {
@@ -103,15 +107,39 @@ class LadderClaimGame {
         if (invalid.isNotEmpty()) return LadderMoveResult.Error("\"${invalid.first().word}\" is not in the dictionary")
 
         val target = targetWordId?.let { wordById(it) }
-        val (outcome, matchedIndices) = if (target != null) {
-            LadderClaimEngine.classify(target.word, mainWord.word, variant.fullCreditBar)
+        val ownerId = currentPlayer
+
+        val result = when (variant.claimMode) {
+            ClaimMode.OWN_TILES -> resolveOwnTilesMode(target, mainWord, formed, isHorizontal, ownerId)
+            ClaimMode.TARGET_TILES -> resolveTargetTilesMode(target, mainWord, formed, ownerId)
+        }
+
+        drawNewTiles(placedThisTurn.size)
+        val playedWord = mainWord.word
+        placedThisTurn.clear()
+        consecutivePasses = 0
+        turnCount++
+        advanceTurnOrEnd()
+        return LadderMoveResult.Success(result, playedWord)
+    }
+
+    // ── Claim mode: original — color your own newly-placed tiles ───────────
+
+    private fun resolveOwnTilesMode(
+        target: LadderWord?,
+        mainWord: LadderWord,
+        formed: List<LadderWord>,
+        isHorizontal: Boolean,
+        ownerId: Int
+    ): LadderPlayResult {
+        val (outcome, matchedIndicesInNew) = if (target != null) {
+            LadderClaimEngine.classifyOwnTiles(target.word, mainWord.word, variant.fullCreditBar)
         } else ColorOutcome.NEUTRAL to emptySet()
 
-        val ownerId = currentPlayer
         val coloredCells = mutableSetOf<Pair<Int, Int>>()
         if (outcome != ColorOutcome.NEUTRAL) {
             placedThisTurn.forEachIndexed { i, t ->
-                if (outcome == ColorOutcome.FULL || i in matchedIndices) coloredCells += t.row to t.col
+                if (outcome == ColorOutcome.FULL || i in matchedIndicesInNew) coloredCells += t.row to t.col
             }
         }
 
@@ -123,7 +151,13 @@ class LadderClaimGame {
         formed.forEach { w -> if (words.none { it.id == w.id }) words += w.copy(ownerId = null) }
 
         var targetConverted = false
-        if (variant.allowNeutralTheft && target != null && outcome != ColorOutcome.NEUTRAL && target.ownerId == null) {
+        // Bug fix: eligibility is derived from the BOARD's actual per-tile ownership,
+        // not the (unreliable, scalar) LadderWord.ownerId field — see
+        // LadderClaimEngine.isWordFullyNeutral's kdoc for why the old check
+        // (`target.ownerId == null`) allowed re-stealing already-claimed words.
+        if (variant.allowNeutralTheft && target != null && outcome != ColorOutcome.NEUTRAL &&
+            LadderClaimEngine.isWordFullyNeutral(board, target)
+        ) {
             var r = target.startRow; var c = target.startCol
             for (i in target.word.indices) {
                 board[r][c]?.let { board[r][c] = it.copy(ownerId = ownerId) }
@@ -135,15 +169,83 @@ class LadderClaimGame {
             targetConverted = true
         }
 
-        drawNewTiles(placedThisTurn.size)
-        val result = LadderPlayResult(target, outcome, matchedIndices, targetConverted)
-        val playedWord = mainWord.word
-        placedThisTurn.clear()
-        consecutivePasses = 0
-        turnCount++
-        advanceTurnOrEnd()
-        return LadderMoveResult.Success(result, playedWord)
+        return LadderPlayResult(target, outcome, matchedIndicesInNew, targetConverted)
     }
+
+    // ── Claim mode: rework — claims land on the TARGET word's cells ────────
+
+    private fun resolveTargetTilesMode(
+        target: LadderWord?,
+        mainWord: LadderWord,
+        formed: List<LadderWord>,
+        ownerId: Int
+    ): LadderPlayResult {
+        // Newly placed tiles are ALWAYS neutral in this mode — ownership only ever
+        // transfers onto an existing TARGET word's cells, never onto tiles just placed.
+        placedThisTurn.forEach { t ->
+            board[t.row][t.col] = LadderTile(t.row, t.col, t.letter, ownerId = null, turnClaimed = turnCount)
+        }
+        formed.forEach { w -> if (words.none { it.id == w.id }) words += w }
+
+        val (outcome, matchedIndicesInTarget) = if (target != null) {
+            LadderClaimEngine.classify(target.word, mainWord.word, variant.fullCreditBar)
+        } else ColorOutcome.NEUTRAL to emptySet()
+
+        var claimedCellCount = 0
+        if (variant.allowNeutralTheft && target != null && outcome != ColorOutcome.NEUTRAL) {
+            var r = target.startRow; var c = target.startCol
+            for (i in target.word.indices) {
+                if (i in matchedIndicesInTarget) {
+                    val existing = board[r][c]
+                    when (existing?.ownerId) {
+                        null -> {
+                            existing?.let {
+                                board[r][c] = it.copy(ownerId = ownerId)
+                                claimedCellCount++
+                            }
+                        }
+                        ownerId -> { /* already the mover's — no-op */ }
+                        else -> {
+                            // Opponent-owned cell. Reclaimable ONLY if a word formed this
+                            // turn crosses through this exact cell perpendicular to the
+                            // target, and that crossing word is not itself solely owned
+                            // by the same opponent (an ambiguous/mixed crossing word does
+                            // not block the reclaim — see soleOwnerExcluding's kdoc).
+                            val crossDir = !target.isHorizontal
+                            val crossWord = formed.firstOrNull {
+                                it.isHorizontal == crossDir && LadderClaimEngine.cellInWord(it, r, c)
+                            }
+                            val opponentId = existing.ownerId
+                            val crossOwner = crossWord?.let {
+                                LadderClaimEngine.soleOwnerExcluding(board, it, excludeCell = r to c)
+                            }
+                            if (crossWord != null && crossOwner != opponentId) {
+                                board[r][c] = existing.copy(ownerId = ownerId)
+                                claimedCellCount++
+                            }
+                        }
+                    }
+                }
+                r += if (target.isHorizontal) 0 else 1
+                c += if (target.isHorizontal) 1 else 0
+            }
+        }
+
+        val targetConverted = target != null && run {
+            var r2 = target.startRow; var c2 = target.startCol
+            var allMover = true
+            for (i in target.word.indices) {
+                if (board[r2][c2]?.ownerId != ownerId) allMover = false
+                r2 += if (target.isHorizontal) 0 else 1
+                c2 += if (target.isHorizontal) 1 else 0
+            }
+            allMover
+        }
+
+        return LadderPlayResult(target, outcome, matchedIndicesInTarget, targetConverted, claimedCellCount)
+    }
+
+    // ── Tile economy ────────────────────────────────────────────────────────
 
     private fun drawNewTiles(count: Int) {
         val player = players[currentPlayer]
@@ -157,6 +259,24 @@ class LadderClaimGame {
         consecutivePasses++
         turnCount++
         if (consecutivePasses >= players.size * 2) isGameOver = true else advanceTurnOrEnd()
+    }
+
+    /** Exchange the current player's whole rack for fresh tiles — costs the turn,
+     *  same convention as ScrabbleGame.exchangeTiles(). Requires >= 7 tiles left
+     *  in the bag so the exchange can't drain it below a normal draw. */
+    fun exchangeTiles(): Boolean {
+        if (bag.size < 7) return false
+        val player = players[currentPlayer]
+        recallAll()
+        val old = player.rack.toList()
+        val newRack = mutableListOf<Char>()
+        repeat(7) { if (bag.isNotEmpty()) newRack.add(bag.removeAt(bag.size - 1)) }
+        players[currentPlayer] = player.copy(rack = newRack)
+        old.forEach { bag.add(it) }
+        bag.shuffle()
+        turnCount++
+        advanceTurnOrEnd()
+        return true
     }
 
     private fun advanceTurnOrEnd() {

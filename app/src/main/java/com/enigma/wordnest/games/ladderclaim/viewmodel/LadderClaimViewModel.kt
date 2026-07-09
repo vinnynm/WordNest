@@ -6,8 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.enigma.wordnest.games.ladderclaim.data.StatsRepository
 import com.enigma.wordnest.games.ladderclaim.data.WordRepository
 import com.enigma.wordnest.games.ladderclaim.model.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class LadderClaimViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -15,6 +18,10 @@ class LadderClaimViewModel(application: Application) : AndroidViewModel(applicat
     private val statsRepo = StatsRepository(application)
     private val game = LadderClaimGame()
     private var statsRecorded = false
+    private var aiOpponent: LadderClaimAiOpponent? = null
+
+    /** Which player index (if any) is AI-controlled this game. */
+    private var aiPlayerIndex: Int? = null
 
     private val _state = MutableStateFlow(LadderClaimState())
     val state: StateFlow<LadderClaimState> = _state.asStateFlow()
@@ -36,11 +43,30 @@ class LadderClaimViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    // ── Game start ────────────────────────────────────────────────────────────
+
+    /** Human vs human. */
     fun startGame(player1: String, player2: String, variant: LadderClaimVariant) {
         if (!wordRepo.isLoaded()) return
         statsRecorded = false
+        aiPlayerIndex = null
+        aiOpponent = null
         val seed = wordRepo.randomSeedWord(4)
         game.startGame(listOf(player1.ifBlank { "PLAYER 1" }, player2.ifBlank { "PLAYER 2" }), seed, variant)
+        syncState()
+    }
+
+    /** Human (player 1) vs AI (player 2). */
+    fun startVsAi(playerName: String, variant: LadderClaimVariant) {
+        if (!wordRepo.isLoaded()) return
+        statsRecorded = false
+        aiPlayerIndex = 1
+        aiOpponent = LadderClaimAiOpponent(wordRepo.dictionarySet())
+        val seed = wordRepo.randomSeedWord(4)
+        game.startGame(
+            listOf(playerName.ifBlank { "YOU" }, "BANKER AI"),
+            seed, variant, aiPlayerIndex = 1
+        )
         syncState()
     }
 
@@ -59,10 +85,12 @@ class LadderClaimViewModel(application: Application) : AndroidViewModel(applicat
                 isGameStarted = true,
                 selectedTile = null,
                 selectedTargetWordId = null,
-                pendingTargetChoiceIds = emptyList()
+                pendingTargetChoiceIds = emptyList(),
+                isVsAi = aiPlayerIndex != null
             )
         }
         maybeRecordStats()
+        maybeRunAiTurn()
     }
 
     private fun maybeRecordStats() {
@@ -73,11 +101,62 @@ class LadderClaimViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    // ── AI turn ───────────────────────────────────────────────────────────────
+
+    private fun maybeRunAiTurn() {
+        val ai = aiOpponent ?: return
+        val aiIdx = aiPlayerIndex ?: return
+        if (game.currentPlayer != aiIdx || game.isGameOver) return
+
+        viewModelScope.launch {
+            _state.update { it.copy(isAiThinking = true) }
+            delay(700)
+
+            val rack = game.players.getOrNull(aiIdx)?.rack ?: emptyList()
+            val decision = withContext(Dispatchers.Default) {
+                ai.decideMove(
+                    board = game.board,
+                    rack = rack,
+                    words = game.words,
+                    claimMode = game.variant.claimMode,
+                    fullCreditBar = game.variant.fullCreditBar
+                )
+            }
+
+            if (decision == null) {
+                // No legal move — try an exchange, else skip.
+                if (!game.exchangeTiles()) game.skipTurn()
+                _state.update { it.copy(isAiThinking = false, lastMessage = "AI had no legal move") }
+                syncState()
+                return@launch
+            }
+
+            decision.move.tiles.forEach { t -> game.placeTile(t.row, t.col, t.letter) }
+            when (val result = game.playWord(decision.targetWordId)) {
+                is LadderMoveResult.Success -> {
+                    _state.update { it.copy(isAiThinking = false, lastMessage = messageFor(result)) }
+                }
+                is LadderMoveResult.Error -> {
+                    // Shouldn't normally happen since the AI only proposes legal moves,
+                    // but fail safe rather than getting the game stuck.
+                    game.recallAll()
+                    game.skipTurn()
+                    _state.update { it.copy(isAiThinking = false, lastMessage = "AI skipped (${result.message})") }
+                }
+            }
+            syncState()
+        }
+    }
+
+    // ── Player actions ──────────────────────────────────────────────────────────
+
     fun selectTile(index: Int) {
+        if (isAiTurn()) return
         _state.update { s -> s.copy(selectedTile = if (s.selectedTile == index) null else index) }
     }
 
     fun onCellClick(row: Int, col: Int) {
+        if (isAiTurn()) return
         val s = _state.value
 
         val placed = s.placedThisTurn.find { it.row == row && it.col == col }
@@ -131,7 +210,7 @@ class LadderClaimViewModel(application: Application) : AndroidViewModel(applicat
         _state.update { it.copy(selectedTargetWordId = if (it.selectedTargetWordId == wordId) null else wordId) }
     }
 
-    /** Preview of what the coloring outcome would be, given the current placement + selected target. */
+    /** Preview of what the coloring/claim outcome would be, given the current placement + selected target. */
     fun previewOutcome(): Pair<ColorOutcome, Set<Int>>? {
         val s = _state.value
         if (s.placedThisTurn.isEmpty()) return null
@@ -146,15 +225,20 @@ class LadderClaimViewModel(application: Application) : AndroidViewModel(applicat
             it.isHorizontal == isHorizontal && (if (isHorizontal) it.startRow == fixedDim else it.startCol == fixedDim)
         } ?: return null
 
-        return LadderClaimEngine.classify(target.word, mainWord.word, s.variant.fullCreditBar)
+        return when (s.variant.claimMode) {
+            ClaimMode.OWN_TILES -> LadderClaimEngine.classifyOwnTiles(target.word, mainWord.word, s.variant.fullCreditBar)
+            ClaimMode.TARGET_TILES -> LadderClaimEngine.classify(target.word, mainWord.word, s.variant.fullCreditBar)
+        }
     }
 
     fun recallAllTiles() {
+        if (isAiTurn()) return
         game.recallAll()
         _state.update { it.copy(players = game.players.toList(), placedThisTurn = emptyList(), selectedTile = null) }
     }
 
     fun playWord() {
+        if (isAiTurn()) return
         val targetId = _state.value.selectedTargetWordId
         when (val result = game.playWord(targetId)) {
             is LadderMoveResult.Success -> {
@@ -176,8 +260,23 @@ class LadderClaimViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun skipTurn() {
+        if (isAiTurn()) return
         game.skipTurn()
         syncState()
+    }
+
+    fun exchangeTiles() {
+        if (isAiTurn()) return
+        if (game.exchangeTiles()) {
+            syncState()
+        } else {
+            _state.update { it.copy(lastMessage = "Not enough tiles in bag to exchange") }
+        }
+    }
+
+    private fun isAiTurn(): Boolean {
+        val idx = aiPlayerIndex ?: return false
+        return game.currentPlayer == idx && !game.isGameOver
     }
 
     fun territoryTally(): Map<Int, Int> = game.tallyTerritory()

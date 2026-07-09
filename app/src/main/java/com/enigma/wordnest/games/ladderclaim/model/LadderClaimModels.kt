@@ -3,6 +3,21 @@ package com.enigma.wordnest.games.ladderclaim.model
 enum class ColorOutcome { FULL, PARTIAL, NEUTRAL }
 
 /**
+ * How a successful play translates into claimed board tiles.
+ *
+ *  OWN_TILES    — original design (§1.4/§1.6): the player's OWN newly-placed tiles get
+ *                 colored based on the match against the chosen target, and a fully-neutral
+ *                 target word can flip entirely to the mover's color ("neutral theft").
+ *  TARGET_TILES — reworked flavour: newly placed tiles are ALWAYS neutral. Instead, the
+ *                 matching cells on the TARGET word itself are what get claimed. A cell
+ *                 already owned by the current mover is a no-op. A cell owned by an
+ *                 opponent can only be reclaimed if a word formed THIS turn crosses that
+ *                 exact cell perpendicular to the target, and that crossing word is not
+ *                 itself solely owned by the same opponent elsewhere.
+ */
+enum class ClaimMode { OWN_TILES, TARGET_TILES }
+
+/**
  * fullCreditBar: matches needed for FULL is (longerLength - fullCreditBar).
  * Default 1 = the doc's "L-1" rule; Generous relaxes it to L-2.
  */
@@ -10,12 +25,18 @@ enum class LadderClaimVariant(
     val displayName: String,
     val maxTurns: Int,
     val fullCreditBar: Int,
-    val allowNeutralTheft: Boolean
+    val allowNeutralTheft: Boolean,
+    val claimMode: ClaimMode = ClaimMode.OWN_TILES
 ) {
-    QUICKFIRE("Quickfire", maxTurns = 10, fullCreditBar = 1, allowNeutralTheft = true),
-    CLASSIC("Classic",     maxTurns = 20, fullCreditBar = 1, allowNeutralTheft = true),
-    GENEROUS("Generous",   maxTurns = 20, fullCreditBar = 2, allowNeutralTheft = true),
-    STRICT("Strict",       maxTurns = 20, fullCreditBar = 1, allowNeutralTheft = false)
+    QUICKFIRE("Quickfire", maxTurns = 10, fullCreditBar = 1, allowNeutralTheft = true, claimMode = ClaimMode.OWN_TILES),
+    CLASSIC("Classic",     maxTurns = 20, fullCreditBar = 1, allowNeutralTheft = true, claimMode = ClaimMode.OWN_TILES),
+    GENEROUS("Generous",   maxTurns = 20, fullCreditBar = 2, allowNeutralTheft = true, claimMode = ClaimMode.OWN_TILES),
+    STRICT("Strict",       maxTurns = 20, fullCreditBar = 1, allowNeutralTheft = false, claimMode = ClaimMode.OWN_TILES),
+
+    /** The reworked flavour: claims land on the TARGET word's cells, not your own tiles.
+     *  allowNeutralTheft doubles here as "reclaiming is enabled at all" — false means
+     *  target selection only ever shows a preview badge with no board effect. */
+    TARGET_STRIKE("Target Strike", maxTurns = 20, fullCreditBar = 1, allowNeutralTheft = true, claimMode = ClaimMode.TARGET_TILES)
 }
 
 data class LadderTile(
@@ -41,13 +62,19 @@ data class LadderWord(
 data class LadderPlayResult(
     val targetWord: LadderWord?,
     val outcome: ColorOutcome,
-    val matchedIndicesInNew: Set<Int>,
-    val targetWordConverted: Boolean
+    /** Indices within the TARGET word (TARGET_TILES mode) or within the NEW word
+     *  (OWN_TILES mode) that were colored/claimed by this play. */
+    val matchedIndices: Set<Int>,
+    val targetWordConverted: Boolean,
+    /** How many target cells were actually claimed this play (TARGET_TILES mode only;
+     *  0 for OWN_TILES, where whole-tile coloring is the unit of account instead). */
+    val claimedCellCount: Int = 0
 )
 
 data class LadderPlayer(
     val name: String,
-    val rack: List<Char>
+    val rack: List<Char>,
+    val isAi: Boolean = false
 )
 
 sealed class LadderMoveResult {
@@ -78,7 +105,9 @@ data class LadderClaimState(
     val isGameOver: Boolean = false,
     val isGameStarted: Boolean = false,
     val lastMessage: String = "",
-    val lastOutcome: ColorOutcome? = null
+    val lastOutcome: ColorOutcome? = null,
+    val isVsAi: Boolean = false,
+    val isAiThinking: Boolean = false
 ) {
     val isActive: Boolean get() = isGameStarted && !isGameOver
 
@@ -95,7 +124,8 @@ data class LadderClaimState(
                 pendingTargetChoiceIds == other.pendingTargetChoiceIds && variant == other.variant &&
                 turnCount == other.turnCount && maxTurns == other.maxTurns &&
                 isGameOver == other.isGameOver && isGameStarted == other.isGameStarted &&
-                lastMessage == other.lastMessage && lastOutcome == other.lastOutcome
+                lastMessage == other.lastMessage && lastOutcome == other.lastOutcome &&
+                isVsAi == other.isVsAi && isAiThinking == other.isAiThinking
     }
 
     override fun hashCode(): Int {
@@ -114,6 +144,8 @@ data class LadderClaimState(
         result = 31 * result + isGameStarted.hashCode()
         result = 31 * result + lastMessage.hashCode()
         result = 31 * result + (lastOutcome?.hashCode() ?: 0)
+        result = 31 * result + isVsAi.hashCode()
+        result = 31 * result + isAiThinking.hashCode()
         return result
     }
 }

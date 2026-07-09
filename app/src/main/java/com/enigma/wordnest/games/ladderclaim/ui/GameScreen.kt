@@ -84,13 +84,15 @@ fun LadderClaimGameScreen(vm: LadderClaimViewModel = viewModel()) {
             if (!state.isGameStarted) {
                 LadderClaimStartScreen(
                     stats = stats,
-                    onStart = { p1, p2, variant -> vm.startGame(p1, p2, variant) }
+                    onStart = { p1, p2, variant -> vm.startGame(p1, p2, variant) },
+                    onStartVsAi = { p1, variant -> vm.startVsAi(p1, variant) }
                 )
                 return@Scaffold
             }
 
             val configuration = LocalConfiguration.current
             val cellSize = (configuration.screenWidthDp / 18).dp
+            val aiTurnActive = state.isVsAi && state.currentPlayer == 1 && !state.isGameOver
 
             Column(
                 modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()),
@@ -102,11 +104,21 @@ fun LadderClaimGameScreen(vm: LadderClaimViewModel = viewModel()) {
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
 
-                Text(
-                    "${state.players.getOrNull(state.currentPlayer)?.name ?: ""}'s turn  ·  turn ${state.turnCount + 1}  ·  ${state.variant.displayName}",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                )
+                if (state.isAiThinking) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+                    Text(
+                        "${state.players.getOrNull(1)?.name ?: "AI"} is thinking…",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    )
+                } else {
+                    Text(
+                        "${state.players.getOrNull(state.currentPlayer)?.name ?: ""}'s turn  ·  turn ${state.turnCount + 1}  ·  ${state.variant.displayName}",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                    )
+                }
 
                 if (state.lastMessage.isNotEmpty()) {
                     Text(
@@ -126,36 +138,39 @@ fun LadderClaimGameScreen(vm: LadderClaimViewModel = viewModel()) {
 
                 Spacer(Modifier.height(8.dp))
 
-                if (state.selectedTargetWordId != null) {
-                    OutcomePreviewChip(vm.previewOutcome()?.first)
-                } else {
-                    Text(
-                        "Tap a board word to set it as your target (optional)", fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.45f)
-                    )
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                val rack = state.players.getOrNull(state.currentPlayer)?.rack ?: emptyList()
-                LadderRack(
-                    rack = rack,
-                    selectedTile = state.selectedTile,
-                    onTileClick = vm::selectTile,
-                    modifier = Modifier.padding(horizontal = 8.dp)
-                )
-
-                Spacer(Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(onClick = vm::playWord, modifier = Modifier.weight(1f), enabled = state.placedThisTurn.isNotEmpty()) {
-                        Text("PLAY")
+                if (!aiTurnActive) {
+                    if (state.selectedTargetWordId != null) {
+                        OutcomePreviewChip(vm.previewOutcome()?.first)
+                    } else {
+                        Text(
+                            "Tap a board word to set it as your target (optional)", fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.45f)
+                        )
                     }
-                    OutlinedButton(onClick = vm::recallAllTiles, modifier = Modifier.weight(1f)) { Text("CLEAR") }
-                    TextButton(onClick = vm::skipTurn, modifier = Modifier.weight(1f)) { Text("SKIP") }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    val rack = state.players.getOrNull(state.currentPlayer)?.rack ?: emptyList()
+                    LadderRack(
+                        rack = rack,
+                        selectedTile = state.selectedTile,
+                        onTileClick = vm::selectTile,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(onClick = vm::playWord, modifier = Modifier.weight(1f), enabled = state.placedThisTurn.isNotEmpty()) {
+                            Text("PLAY")
+                        }
+                        OutlinedButton(onClick = vm::recallAllTiles, modifier = Modifier.weight(1f)) { Text("CLEAR") }
+                        OutlinedButton(onClick = vm::exchangeTiles, modifier = Modifier.weight(1f)) { Text("EXCHANGE") }
+                        TextButton(onClick = vm::skipTurn, modifier = Modifier.weight(1f)) { Text("SKIP") }
+                    }
                 }
 
                 if (state.isGameOver) {
@@ -216,11 +231,13 @@ private fun OutcomePreviewChip(outcome: ColorOutcome?) {
 @Composable
 private fun LadderClaimStartScreen(
     stats: LadderClaimStats,
-    onStart: (String, String, LadderClaimVariant) -> Unit
+    onStart: (String, String, LadderClaimVariant) -> Unit,
+    onStartVsAi: (String, LadderClaimVariant) -> Unit
 ) {
     var p1 by remember { mutableStateOf("PLAYER 1") }
     var p2 by remember { mutableStateOf("PLAYER 2") }
     var variant by remember { mutableStateOf(LadderClaimVariant.CLASSIC) }
+    var vsAiMode by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
@@ -234,18 +251,38 @@ private fun LadderClaimStartScreen(
         Text(
             "Claim territory by playing near ladder-legal words", fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-            modifier = Modifier.padding(bottom = 32.dp)
+            modifier = Modifier.padding(bottom = 24.dp)
         )
 
+        // ── vs AI / 2 Players toggle ──────────────────────────────────────
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf("vs AI" to true, "2 Players" to false).forEach { (label, isAi) ->
+                val selected = vsAiMode == isAi
+                FilterChip(
+                    selected = selected,
+                    onClick = { vsAiMode = isAi },
+                    label = { Text(label) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
         OutlinedTextField(
-            value = p1, onValueChange = { p1 = it.uppercase() }, label = { Text("Player 1") },
+            value = p1, onValueChange = { p1 = it.uppercase() },
+            label = { Text(if (vsAiMode) "Your name" else "Player 1") },
             singleLine = true, modifier = Modifier.fillMaxWidth()
         )
-        Spacer(Modifier.height(12.dp))
-        OutlinedTextField(
-            value = p2, onValueChange = { p2 = it.uppercase() }, label = { Text("Player 2") },
-            singleLine = true, modifier = Modifier.fillMaxWidth()
-        )
+
+        if (!vsAiMode) {
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
+                value = p2, onValueChange = { p2 = it.uppercase() }, label = { Text("Player 2") },
+                singleLine = true, modifier = Modifier.fillMaxWidth()
+            )
+        }
 
         Spacer(Modifier.height(20.dp))
         Text("VARIANT", fontSize = 13.sp, fontWeight = FontWeight.Bold,
@@ -278,7 +315,12 @@ private fun LadderClaimStartScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        Button(onClick = { onStart(p1, p2, variant) }, modifier = Modifier.fillMaxWidth().height(56.dp)) {
+        Button(
+            onClick = {
+                if (vsAiMode) onStartVsAi(p1, variant) else onStart(p1, p2, variant)
+            },
+            modifier = Modifier.fillMaxWidth().height(56.dp)
+        ) {
             Text("START GAME", fontWeight = FontWeight.Black, fontSize = 18.sp)
         }
 
@@ -299,4 +341,5 @@ private fun variantSubtitle(v: LadderClaimVariant) = when (v) {
     LadderClaimVariant.CLASSIC   -> "20 turns each — standard rules"
     LadderClaimVariant.GENEROUS  -> "Easier FULL claims (L-2 match)"
     LadderClaimVariant.STRICT    -> "No neutral-tile theft"
+    LadderClaimVariant.TARGET_STRIKE -> "Claims land on the TARGET word, not your own tiles"
 }

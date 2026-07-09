@@ -18,6 +18,7 @@ import com.enigma.wordnest.games.betweenle.ui.BetweenleGameScreen
 import com.enigma.wordnest.games.chromaword.ui.ChromaWordGameScreen
 import com.enigma.wordnest.games.codeword.ui.CodewordGameScreen
 import com.enigma.wordnest.games.crossword.ui.CrosswordGameScreen
+import com.enigma.wordnest.games.fragment.ui.FragmentGameScreen
 import com.enigma.wordnest.games.ladderclaim.ui.LadderClaimGameScreen
 import com.enigma.wordnest.games.wordladder.ui.WordLadderGameScreen
 
@@ -51,6 +52,7 @@ fun WordNestApp(scrabbleGameViewModel: ScrabbleGameViewModel) {
             composable("ladder_claim") { LadderClaimGameScreen() }
             composable("crossword") { CrosswordGameScreen() }
             composable("codeword") { CodewordGameScreen() }
+            composable("fragment") { FragmentGameScreen() }
         }
     }
 }

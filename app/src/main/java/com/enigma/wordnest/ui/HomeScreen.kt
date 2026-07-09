@@ -3,6 +3,9 @@ package com.enigma.wordnest.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -40,6 +43,8 @@ private val games = listOf(
         accent = NestTeal,
         route = "Hangman"
     ),
+    GameEntry("Fragment", "🧩", "Solve clues, collect letters, crack the word", NestTeal, "fragment"),
+
     GameEntry("Ladder Claim", "🏗️", "Claim territory by playing near ladder-legal words", NestPurple, "ladder_claim"),
     GameEntry("Crossword", "📰", "A fresh generated puzzle every time", NestTeal, "crossword"),
     GameEntry("Codeword", "🔢", "Decode the grid, one number at a time", NestPurple, "codeword")
@@ -51,32 +56,42 @@ fun HomeScreen(onNavigate: (String) -> Unit) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                text = "WordNest",
-                fontSize = 42.sp,
-                fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.primary,
-                letterSpacing = 1.sp
-            )
-            Text(
-                text = "three little word games, made just for you 💌",
-                fontSize = 14.sp,
-                color = NestSubtle,
-                modifier = Modifier.padding(top = 6.dp, bottom = 40.dp)
-            )
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(horizontal = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "WordNest",
+                        fontSize = 42.sp,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary,
+                        letterSpacing = 1.sp
+                    )
+                    Text(
+                        text = "three little word games, made just for you 💌",
+                        fontSize = 14.sp,
+                        color = NestSubtle,
+                        modifier = Modifier.padding(top = 6.dp, bottom = 40.dp)
+                    )
+                }
 
-            games.forEach { game ->
+            }
+
+            items(games.toList()) { game ->
                 GameCard(game = game, onClick = { onNavigate(game.route) })
                 Spacer(Modifier.height(16.dp))
             }
+
         }
     }
 }
