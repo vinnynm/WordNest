@@ -44,7 +44,7 @@ private val games = listOf(
         route = "Hangman"
     ),
     GameEntry("Fragment", "🧩", "Solve clues, collect letters, crack the word", NestTeal, "fragment"),
-
+    GameEntry("Absurd Auction", "🏦", "Scrabble, but the Banker picks your tiles", NestPurple, "absurd_auction"),
     GameEntry("Ladder Claim", "🏗️", "Claim territory by playing near ladder-legal words", NestPurple, "ladder_claim"),
     GameEntry("Crossword", "📰", "A fresh generated puzzle every time", NestTeal, "crossword"),
     GameEntry("Codeword", "🔢", "Decode the grid, one number at a time", NestPurple, "codeword")

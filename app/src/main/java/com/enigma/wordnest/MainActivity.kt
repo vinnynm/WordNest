@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.enigma.wordnest.games.absurdauction.ui.AbsurdAuctionGameScreen
 import com.enigma.wordnest.games.lexicon.ScrabbleGameApp
 import com.enigma.wordnest.games.lexicon.ui.ScrabbleGameViewModel
 import com.enigma.wordnest.ui.HomeScreen
@@ -53,6 +54,7 @@ fun WordNestApp(scrabbleGameViewModel: ScrabbleGameViewModel) {
             composable("crossword") { CrosswordGameScreen() }
             composable("codeword") { CodewordGameScreen() }
             composable("fragment") { FragmentGameScreen() }
+            composable("absurd_auction") { AbsurdAuctionGameScreen() }
         }
     }
 }
