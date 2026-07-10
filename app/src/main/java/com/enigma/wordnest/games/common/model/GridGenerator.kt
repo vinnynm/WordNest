@@ -316,11 +316,22 @@ object GridGenerator {
             slot.id to (wordsByLength[slot.length].orEmpty()).shuffled().toMutableSet()
         }.toMutableMap()
 
+
+
         val emptySlot = slots.firstOrNull { (domain[it.id]?.size ?: 0) == 0 }
         if (emptySlot != null) {
             Log.d(TAG, "Slot ${emptySlot.id} (len=${emptySlot.length}) has 0 candidate words — aborting attempt early")
             return null
         }
+
+        // NEW: surface the pattern's weakest slots before searching, so a
+        // genuine-exhaustion failure (as opposed to a budget/time failure)
+        // can be diagnosed directly instead of inferred from backtrack counts.
+        val smallestDomains = slots
+            .sortedBy { domain[it.id]?.size ?: 0 }
+            .take(5)
+            .joinToString { "id=${it.id} len=${it.length} domainSize=${domain[it.id]?.size}" }
+        Log.d(TAG, "smallest domains: $smallestDomains")
 
         val assignment = mutableMapOf<Int, String>()
         val usedWords = mutableSetOf<String>()   // O(1) duplicate-word check, replaces `word in assignment.values`

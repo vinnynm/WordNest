@@ -1,6 +1,7 @@
 package com.enigma.wordnest.games.absurdauction.model
 
 import com.enigma.wordnest.games.lexicon.model.BoardConfig
+import kotlin.math.roundToInt
 import kotlin.random.Random
 
 /**
@@ -183,7 +184,7 @@ object BankerEngine {
         val vowelRatio = vowels.toDouble() / total
         score -= when {
             vowelRatio in 0.4..0.6 -> 0
-            vowelRatio < 0.2 || vowelRatio > 0.8 -> 8
+            vowelRatio !in 0.2..0.8 -> 8
             else -> 3
         }
 
@@ -230,7 +231,7 @@ object BankerEngine {
             if (usable) potential+=value else potential+=(value * 0.3)
         }
         potential += upper.count { it in GENTLE_SCORERS } * 2
-        return Math.round(potential).toInt()
+        return potential.roundToInt()
     }
 
     private fun synergySignature(c: DrawCandidate) = c.tiles.sorted().joinToString("")
