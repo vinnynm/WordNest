@@ -281,17 +281,23 @@ object GridGenerator {
     /**
      * Attempts to fill every slot in [pattern] with a distinct dictionary word
      * satisfying all crossing constraints, using most-constrained-variable
-     * ordering and forward checking accelerated by [index]. Returns `null` if
-     * no complete fill is found before either budget is exhausted.
+     * ordering and forward checking accelerated by [index].
      *
-     * Two independent stop conditions bound the search:
-     * - [maxBacktracks]: number of failed placements before giving up.
-     * - [deadlineMillis]: wall-clock ceiling from the start of this call —
-     *   the one that actually matters for UX, since backtrack cost isn't
-     *   uniform across domain sizes.
+     * v4 fix (see log2.logcat diagnosis): the v3 index made forward-check's
+     * MEMBERSHIP TEST O(1), but forwardCheck was still ITERATING the crossing
+     * slot's full current domain regardless of size. Against a 150k+-word
+     * dictionary, an unpruned domain for a common length (4-8) can be tens of
+     * thousands of words, so that iteration dominated per-node cost even
+     * though the search tree itself stayed small (confirmed by log2: 18-371
+     * backtracks per attempt, every attempt still hitting the ~4s deadline).
      *
-     * Fails fast (no search at all) if any slot's domain is empty before
-     * backtracking even starts.
+     * Fix: forwardCheck now iterates whichever of {matching, otherDomain} is
+     * SMALLER, and prunes by swapping in a whole new domain Set by reference
+     * (O(1) save/restore) instead of removeAll/addAll on a shared mutable Set
+     * (O(domain size) either way). Also drops the old toList() copy of the
+     * slot's own domain (unnecessary — it's never mutated during its own
+     * candidate loop) and replaces the `word in assignment.values` linear
+     * scan with an O(1) usedWords set.
      */
     private fun fillGrid(
         pattern: PatternInfo,
@@ -303,12 +309,9 @@ object GridGenerator {
         val slots = pattern.slots
         if (slots.isEmpty()) return emptyMap()
         val crossings = pattern.crossings
+        val slotById = slots.associateBy { it.id }
         val startTime = System.currentTimeMillis()
 
-        // Domains as MutableSet, not List: forward-check removal below relies
-        // on O(1) membership tests against these, which is what actually makes
-        // the indexed lookup pay off (an indexed match-set intersected against
-        // a linear-scan domain would still be O(domain) overall).
         val domain: MutableMap<Int, MutableSet<String>> = slots.associate { slot ->
             slot.id to (wordsByLength[slot.length].orEmpty()).shuffled().toMutableSet()
         }.toMutableMap()
@@ -320,6 +323,7 @@ object GridGenerator {
         }
 
         val assignment = mutableMapOf<Int, String>()
+        val usedWords = mutableSetOf<String>()   // O(1) duplicate-word check, replaces `word in assignment.values`
         var backtrackCount = 0
 
         fun timeUp() = System.currentTimeMillis() - startTime > deadlineMillis
@@ -337,40 +341,50 @@ object GridGenerator {
         }
 
         /**
-         * After assigning [word] to [slot], narrows every unassigned crossing
-         * slot's domain to only words consistent with the newly-fixed letter.
+         * Prunes every unassigned crossing slot's domain to the intersection
+         * with [index]'s match-set for the newly-fixed letter/position.
          *
-         * Indexed version: instead of scanning `otherDomain` and testing every
-         * candidate's letter (the old O(domain size) approach), looks up the
-         * exact set of words with the required letter at the required position
-         * via [index] (O(match size), typically much smaller than the full
-         * domain), then intersects that against the current domain. Removed
-         * words are recorded for [undoForwardCheck].
+         * Chooses to iterate whichever of {matching, otherDomain} is smaller
+         * — this is the actual fix for the log2 slowdown. Early in the search,
+         * `otherDomain` (unpruned) can be 10,000+ words while `matching`
+         * (words with one letter fixed at one position) is usually far
+         * smaller; the old code always iterated `otherDomain`, so indexing
+         * helped the *test* but not the *scan*.
+         *
+         * Returns the OLD domain objects (by reference, O(1) to save) keyed
+         * by slot id, so [undoForwardCheck] can restore them with a plain
+         * reference write instead of re-adding removed elements one by one.
          */
-        fun forwardCheck(slot: GridSlot, word: String): MutableMap<Int, MutableList<String>>? {
-            val removed = mutableMapOf<Int, MutableList<String>>()
+        fun forwardCheck(slot: GridSlot, word: String): MutableMap<Int, MutableSet<String>>? {
+            val savedDomains = mutableMapOf<Int, MutableSet<String>>()
             for (crossing in crossings[slot.id].orEmpty()) {
                 val otherId = crossing.slotB
                 if (otherId in assignment) continue
                 val otherDomain = domain[otherId] ?: continue
                 val letter = word.getOrNull(crossing.indexA) ?: continue
-                val otherSlot = slots.first { it.id == otherId }
+                val otherSlot = slotById[otherId] ?: continue
                 val idxB = crossing.indexB
                 if (idxB >= otherSlot.length) continue
 
                 val matching = index.wordsWithLetterAt(otherSlot.length, idxB, letter)
-                val toRemove = otherDomain.filterNot { it in matching }
-                if (toRemove.isNotEmpty()) {
-                    otherDomain.removeAll(toRemove.toSet())
-                    removed.getOrPut(otherId) { mutableListOf() }.addAll(toRemove)
-                    if (otherDomain.isEmpty()) return null
+
+                val newDomain: MutableSet<String> = if (matching.size < otherDomain.size) {
+                    matching.filterTo(HashSet(minOf(matching.size, otherDomain.size))) { it in otherDomain }
+                } else {
+                    otherDomain.filterTo(HashSet()) { it in matching }
                 }
+
+                if (newDomain.size == otherDomain.size) continue // nothing pruned — skip the swap entirely
+
+                savedDomains[otherId] = otherDomain   // O(1) reference save
+                domain[otherId] = newDomain
+                if (newDomain.isEmpty()) return null
             }
-            return removed
+            return savedDomains
         }
 
-        fun undoForwardCheck(removedMap: Map<Int, List<String>>) {
-            for ((slotId, words) in removedMap) domain[slotId]?.addAll(words)
+        fun undoForwardCheck(saved: Map<Int, MutableSet<String>>) {
+            for ((slotId, oldDomain) in saved) domain[slotId] = oldDomain   // O(1) reference restore per slot
         }
 
         fun backtrack(unassigned: List<GridSlot>): Boolean {
@@ -379,20 +393,25 @@ object GridGenerator {
 
             val slot = mostConstrainedSlot(unassigned)
             val remaining = unassigned - slot
-            val candidates = domain[slot.id]?.toList().orEmpty()
+            // No toList() copy here: domain[slot.id] is never mutated during
+            // its own candidate loop (only OTHER slots' domains get swapped
+            // out by forwardCheck), so iterating the Set directly is safe.
+            val candidates = domain[slot.id].orEmpty()
 
             for (word in candidates) {
                 if (timeUp()) return false
-                if (word in assignment.values) continue // no duplicate words in one grid
+                if (word in usedWords) continue
                 if (!consistent(slot, word)) continue
 
                 assignment[slot.id] = word
-                val removedForUndo = forwardCheck(slot, word)
-                if (removedForUndo != null) {
+                usedWords.add(word)
+                val savedDomains = forwardCheck(slot, word)
+                if (savedDomains != null) {
                     if (backtrack(remaining)) return true
-                    undoForwardCheck(removedForUndo)
+                    undoForwardCheck(savedDomains)
                 }
                 assignment.remove(slot.id)
+                usedWords.remove(word)
                 backtrackCount++
                 if (backtrackCount > maxBacktracks || timeUp()) return false
             }

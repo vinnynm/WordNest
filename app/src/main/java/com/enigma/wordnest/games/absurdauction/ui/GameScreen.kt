@@ -88,6 +88,9 @@ fun AbsurdAuctionGameScreen(vm: AuctionViewModel = viewModel()) {
                 DrawPoolTensionBar(
                     stance = state.bankerStance,
                     lastDecision = state.lastDecision,
+                    lastDecisionPlayerName = state.lastDecisionPlayerIndex?.let { idx -> state.players.getOrNull(idx)?.name },
+                    cumulativeImpact = state.cumulativeImpact,
+                    playerNames = state.players.map { it.name },
                     isThinking = state.isBankerThinking,
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
@@ -104,7 +107,7 @@ fun AbsurdAuctionGameScreen(vm: AuctionViewModel = viewModel()) {
 
                 Board(
                     board = state.board,
-                    placedThisTurn = emptyList(),
+                    placedThisTurn = state.placedThisTurn,
                     selectedTile = selectedTile,
                     onCellClick = vm::onCellClick,
                     cellSize = cellSize
@@ -231,14 +234,14 @@ private fun AbsurdAuctionHowToPlayDialog(onDismiss: () -> Unit) {
             Column {
                 Text(
                     "Same rules as Lexicon — play valid dictionary words that connect to the board. " +
-                            "But there's no random bag: every draw is chosen by the Banker.",
+                        "But there's no random bag: every draw is chosen by the Banker.",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
                     "In EQUALIZING stance, if you're leading by a wide margin, the Banker gives you " +
-                            "its worst available rack. If you're trailing, you get its best. The tension " +
-                            "bar shows how many alternatives got rejected to make that happen.",
+                        "its worst available rack. If you're trailing, you get its best. The tension " +
+                        "bar shows how many alternatives got rejected to make that happen.",
                     style = MaterialTheme.typography.bodySmall
                 )
             }

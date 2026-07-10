@@ -43,6 +43,14 @@ class AuctionGame {
     var lastDecisions: MutableList<BankerDecision> = mutableListOf()
         private set
 
+    /** Index of the player each entry in [lastDecisions] was drawn for (same size, parallel list). */
+    var lastDecisionPlayers: MutableList<Int> = mutableListOf()
+        private set
+
+    /** Running total of potentialDelta per player — surfaced as "Banker impact so far." */
+    var cumulativeImpact: MutableMap<Int, Int> = mutableMapOf()
+        private set
+
     fun updateDictionary(newDict: Set<String>) { dictionary = newDict }
     fun updateLargeDictionary(newDict: Set<String>) { largeDictionary = newDict }
 
@@ -56,6 +64,8 @@ class AuctionGame {
         consecutiveVowelless = mutableMapOf(0 to 0, 1 to 0)
         consecutiveConsonantless = mutableMapOf(0 to 0, 1 to 0)
         lastDecisions = mutableListOf()
+        lastDecisionPlayers = mutableListOf()
+        cumulativeImpact = mutableMapOf(0 to 0, 1 to 0)
 
         players.clear()
         players.add(Player(player1Name, 0, emptyList()))
@@ -95,6 +105,8 @@ class AuctionGame {
         consecutiveVowelless[playerIdx] = outcome.newConsecutiveVowelless
         consecutiveConsonantless[playerIdx] = outcome.newConsecutiveConsonantless
         lastDecisions.add(outcome.decision)
+        lastDecisionPlayers.add(playerIdx)
+        cumulativeImpact[playerIdx] = (cumulativeImpact[playerIdx] ?: 0) + outcome.decision.potentialDelta
 
         val player = players[playerIdx]
         players[playerIdx] = player.copy(rack = player.rack + outcome.decision.chosenTiles)
@@ -244,5 +256,7 @@ class AuctionGame {
         board.forEach { row -> for (i in row.indices) row[i] = null }
         placedThisTurn.clear(); players.clear(); currentPlayer = 0; consecutiveSkips = 0; isGameOver = false; pool.clear()
         lastDecisions = mutableListOf()
+        lastDecisionPlayers = mutableListOf()
+        cumulativeImpact = mutableMapOf()
     }
 }

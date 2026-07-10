@@ -113,8 +113,11 @@ class AuctionViewModel(application: Application) : AndroidViewModel(application)
                 players = game.players.toList(),
                 remainingPool = game.pool.toList(),
                 currentPlayer = game.currentPlayer,
+                placedThisTurn = game.placedThisTurn.toList(),
                 bankerStance = game.stance,
                 lastDecision = game.lastDecisions.lastOrNull(),
+                lastDecisionPlayerIndex = game.lastDecisionPlayers.lastOrNull(),
+                cumulativeImpact = game.cumulativeImpact.toMap(),
                 isBankerThinking = false,
                 isGameStarted = true,
                 isGameOver = game.isGameOver

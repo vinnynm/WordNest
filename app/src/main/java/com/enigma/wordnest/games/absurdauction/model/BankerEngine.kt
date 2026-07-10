@@ -1,5 +1,6 @@
 package com.enigma.wordnest.games.absurdauction.model
 
+import com.enigma.wordnest.games.lexicon.model.BoardConfig
 import kotlin.random.Random
 
 /**
@@ -7,8 +8,17 @@ import kotlin.random.Random
  *
  * Directly modeled on AbsurdleEngine.process/chooseBucket: instead of bucketing
  * candidates by a Wordle-style pattern and picking the worst bucket for the
- * player, this buckets candidate *draws* by a cheap rack-quality heuristic and
- * picks the draw that's worst for a leading player / best for a trailing one.
+ * player, this buckets candidate *draws* by heuristics and picks the draw
+ * that's worst for a leading player / best for a trailing one.
+ *
+ * IMPORTANT DISTINCTION (learned from playtesting): "rack quality" (how pleasant
+ * / synergistic a rack feels to play) and "scoring potential" (how many points
+ * it's actually likely to yield) are NOT the same axis. A rack of four different
+ * common low-value letters (E, A, I, T) is high quality/synergy but low
+ * scoring potential. A rack with an isolated Q or X is low quality but, if it
+ * gets played at all, high scoring potential. Starving/favoring must target
+ * SCORING POTENTIAL, not synergy — synergy is retained only as a tie-break and
+ * for the hard-ratio/pity guardrails, which are about playability, not score.
  *
  * Phase 1 scope: BankerStance.NEUTRAL and EQUALIZING only. CHAOTIC and the
  * >2-player field-average comparison are not implemented yet — [decide] falls
@@ -20,6 +30,11 @@ object BankerEngine {
     private const val SAMPLE_COUNT = 16
     private const val LEAD_THRESHOLD = 30
     private const val PITY_DROUGHT_LIMIT = 2 // consecutive draws w/o a vowel or consonant
+
+    /** Letters the design doc asked for explicitly: decent value (2-4pts), pairs well with
+     * vowels, not intimidating like Q/X/Z/J. Used to sweeten a favored rack without
+     * making it toothless (an all-1-point rack is still a bad time even when "easy"). */
+    private val GENTLE_SCORERS = setOf('V', 'D', 'C', 'M')
 
     data class DrawContext(
         val remainingPool: List<Char>,
@@ -52,7 +67,10 @@ object BankerEngine {
             val tiles = perfectMedianDraw(ctx.remainingPool, ctx.drawCount)
             val newPool = removeAll(ctx.remainingPool, tiles)
             return DrawOutcome(
-                decision = BankerDecision(tiles, rejectedAlternativesCount = 0, favoredPlayer = null),
+                decision = BankerDecision(
+                    tiles, rejectedAlternativesCount = 0, favoredPlayer = null,
+                    role = DrawRole.OPENING, potentialDelta = 0
+                ),
                 newPool = newPool,
                 newConsecutiveVowelless = updateStreak(tiles, ctx.consecutiveVowelless, LetterSynergy::isVowel),
                 newConsecutiveConsonantless = updateStreak(tiles, ctx.consecutiveConsonantless) { !LetterSynergy.isVowel(it) }
@@ -63,7 +81,10 @@ object BankerEngine {
             val tiles = sampleUniform(ctx.remainingPool, ctx.drawCount, ctx.random)
             val newPool = removeAll(ctx.remainingPool, tiles)
             return DrawOutcome(
-                decision = BankerDecision(tiles, rejectedAlternativesCount = 0, favoredPlayer = null),
+                decision = BankerDecision(
+                    tiles, rejectedAlternativesCount = 0, favoredPlayer = null,
+                    role = DrawRole.UNIFORM_RANDOM, potentialDelta = 0
+                ),
                 newPool = newPool,
                 newConsecutiveVowelless = updateStreak(tiles, ctx.consecutiveVowelless, LetterSynergy::isVowel),
                 newConsecutiveConsonantless = updateStreak(tiles, ctx.consecutiveConsonantless) { !LetterSynergy.isVowel(it) }
@@ -81,6 +102,8 @@ object BankerEngine {
             (0 until SAMPLE_COUNT).map { buildCandidate(sampleWeighted(ctx.remainingPool, ctx.drawCount, ctx.random)) }
         }
 
+        val averagePotential = candidates.map { it.scoringPotential }.average()
+
         // Pity timer: force a vowel/consonant after a drought, overriding stance for this draw.
         var pityApplied = false
         if (ctx.consecutiveVowelless >= PITY_DROUGHT_LIMIT) {
@@ -93,26 +116,31 @@ object BankerEngine {
         }
 
         val chosen: DrawCandidate
-        val favoredPlayer: Int?
+        val role: DrawRole
 
         if (pityApplied) {
-            // Pity override: pick close to median quality rather than continuing to punish/favor.
-            chosen = candidates.sortedBy { it.rackQualityScore }[candidates.size / 2]
-            favoredPlayer = null
+            // Pity override: pick close to median rather than continuing to punish/favor.
+            chosen = candidates.sortedBy { it.scoringPotential }[candidates.size / 2]
+            role = DrawRole.PITY_OVERRIDE
         } else {
             val diff = ctx.drawingPlayerScore - ctx.opponentScore
+            // Primary sort key is SCORING POTENTIAL (fixes the leader-scores-more-anyway
+            // bug); rack quality/synergy is only a tie-break so a "worst potential" pick
+            // doesn't happen to also be a duplicate-letter mess that reads as obviously rigged.
             val sorted = candidates.sortedWith(
-                compareBy<DrawCandidate> { it.rackQualityScore }.thenBy { synergySignature(it) }
+                compareBy<DrawCandidate> { it.scoringPotential }
+                    .thenBy { it.rackQualityScore }
+                    .thenBy { synergySignature(it) }
             )
             chosen = when {
-                diff > LEAD_THRESHOLD -> sorted.first()   // leading -> worst rack
-                diff < -LEAD_THRESHOLD -> sorted.last()   // trailing -> best rack
+                diff > LEAD_THRESHOLD -> sorted.first()   // leading -> lowest scoring potential
+                diff < -LEAD_THRESHOLD -> sorted.last()   // trailing -> highest scoring potential
                 else -> sorted[sorted.size / 2]           // close game -> avoid whiplash
             }
-            favoredPlayer = when {
-                diff > LEAD_THRESHOLD -> null       // starved, not favored
-                diff < -LEAD_THRESHOLD -> null       // favored player is the drawer themself; caller knows who's drawing
-                else -> null
+            role = when {
+                diff > LEAD_THRESHOLD -> DrawRole.STARVED
+                diff < -LEAD_THRESHOLD -> DrawRole.FAVORED
+                else -> DrawRole.MEDIAN
             }
         }
 
@@ -121,8 +149,10 @@ object BankerEngine {
             decision = BankerDecision(
                 chosenTiles = chosen.tiles,
                 rejectedAlternativesCount = candidates.size - 1,
-                favoredPlayer = favoredPlayer,
-                pityOverrideApplied = pityApplied
+                favoredPlayer = null,
+                pityOverrideApplied = pityApplied,
+                role = role,
+                potentialDelta = (chosen.scoringPotential - averagePotential).let { Math.round(it).toInt() }
             ),
             newPool = newPool,
             newConsecutiveVowelless = updateStreak(chosen.tiles, ctx.consecutiveVowelless, LetterSynergy::isVowel),
@@ -130,7 +160,7 @@ object BankerEngine {
         )
     }
 
-    // ── Rack Quality Scorer (§2.4 item 2) ──────────────────────────────────────
+    // ── Rack Quality Scorer (§2.4 item 2) — playability, NOT scoring potential ──
 
     private fun buildCandidate(tiles: List<Char>): DrawCandidate {
         val upper = tiles.map { it.uppercaseChar() }
@@ -140,7 +170,8 @@ object BankerEngine {
             tiles = tiles,
             rackQualityScore = scoreRack(upper, vowels, consonants),
             vowelCount = vowels,
-            consonantCount = consonants
+            consonantCount = consonants,
+            scoringPotential = scoringPotential(upper)
         )
     }
 
@@ -172,6 +203,34 @@ object BankerEngine {
         }
 
         return score
+    }
+
+    /**
+     * Expected point yield of a rack — the metric that actually drives starve/favor
+     * selection. Unlike [scoreRack] this is NOT about how pleasant the rack feels;
+     * it's a rough estimate of how many points it can realistically produce:
+     *
+     *  - A letter's raw point value counts in full if it's a vowel or has a usable
+     *    connector present elsewhere in the rack (i.e. it's likely to actually get
+     *    played, not just sit dead in the rack).
+     *  - An isolated high-point letter (no connector) counts at a steep discount —
+     *    it LOOKS scary but is unlikely to be placed, so it shouldn't inflate the
+     *    "starve the leader" target and accidentally reward them with a high-value
+     *    rack anyway.
+     *  - A small bonus applies for gentle mid-value scorers (V/D/C/M) so a
+     *    "favored" rack isn't just an all-1-point vowel/common-consonant soup —
+     *    it should feel winnable, not just harmless.
+     */
+    private fun scoringPotential(upper: List<Char>): Int {
+        val upperSet = upper.toSet()
+        var potential = 0.0
+        for (ch in upper) {
+            val value = BoardConfig.letterValues[ch] ?: 0
+            val usable = LetterSynergy.isVowel(ch) || !LetterSynergy.isIsolated(ch, upperSet)
+            if (usable) potential+=value else potential+=(value * 0.3)
+        }
+        potential += upper.count { it in GENTLE_SCORERS } * 2
+        return Math.round(potential).toInt()
     }
 
     private fun synergySignature(c: DrawCandidate) = c.tiles.sorted().joinToString("")
