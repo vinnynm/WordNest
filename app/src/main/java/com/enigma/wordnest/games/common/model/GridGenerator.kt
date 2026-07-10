@@ -457,9 +457,9 @@ object GridGenerator {
         size: Int,
         wordsByLength: Map<Int, List<String>>,
         patterns: List<Set<Pair<Int, Int>>> = if (size <= 11) BLOCK_PATTERNS_11 else BLOCK_PATTERNS_15,
-        attemptsPerPattern: Int = 3,
-        maxBacktracksPerAttempt: Int = 3_000,
-        deadlineMillisPerAttempt: Long = 4_000L
+        attemptsPerPattern: Int = 6,
+        maxBacktracksPerAttempt: Int = 8_000,
+        deadlineMillisPerAttempt: Long = 18_000L
     ): GeneratedGrid? {
         val index = LetterPositionIndex(wordsByLength)
 
