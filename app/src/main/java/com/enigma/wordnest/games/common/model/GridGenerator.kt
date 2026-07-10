@@ -304,7 +304,8 @@ object GridGenerator {
         wordsByLength: Map<Int, List<String>>,
         index: LetterPositionIndex,
         maxBacktracks: Int,
-        deadlineMillis: Long
+        deadlineMillis: Long,
+        lcvSampleSize: Int = 60
     ): Map<Int, String>? {
         val slots = pattern.slots
         if (slots.isEmpty()) return emptyMap()
@@ -316,17 +317,15 @@ object GridGenerator {
             slot.id to (wordsByLength[slot.length].orEmpty()).shuffled().toMutableSet()
         }.toMutableMap()
 
-
-
         val emptySlot = slots.firstOrNull { (domain[it.id]?.size ?: 0) == 0 }
         if (emptySlot != null) {
             Log.d(TAG, "Slot ${emptySlot.id} (len=${emptySlot.length}) has 0 candidate words — aborting attempt early")
             return null
         }
 
-        // NEW: surface the pattern's weakest slots before searching, so a
-        // genuine-exhaustion failure (as opposed to a budget/time failure)
-        // can be diagnosed directly instead of inferred from backtrack counts.
+        // Diagnostic: surface the pattern's weakest slots before searching.
+        // If a long slot sits at a tiny domain size here, repeated genuine
+        // (non-budget) failures are a coverage problem LCV cannot fix.
         val smallestDomains = slots
             .sortedBy { domain[it.id]?.size ?: 0 }
             .take(5)
@@ -334,7 +333,7 @@ object GridGenerator {
         Log.d(TAG, "smallest domains: $smallestDomains")
 
         val assignment = mutableMapOf<Int, String>()
-        val usedWords = mutableSetOf<String>()   // O(1) duplicate-word check, replaces `word in assignment.values`
+        val usedWords = mutableSetOf<String>()
         var backtrackCount = 0
 
         fun timeUp() = System.currentTimeMillis() - startTime > deadlineMillis
@@ -352,20 +351,50 @@ object GridGenerator {
         }
 
         /**
-         * Prunes every unassigned crossing slot's domain to the intersection
-         * with [index]'s match-set for the newly-fixed letter/position.
+         * LCV cost for [word] in [slot]: estimated total number of candidates
+         * that would be eliminated from unassigned crossing slots' domains if
+         * [word] were chosen. Lower = less constraining = tried first.
          *
-         * Chooses to iterate whichever of {matching, otherDomain} is smaller
-         * — this is the actual fix for the log2 slowdown. Early in the search,
-         * `otherDomain` (unpruned) can be 10,000+ words while `matching`
-         * (words with one letter fixed at one position) is usually far
-         * smaller; the old code always iterated `otherDomain`, so indexing
-         * helped the *test* but not the *scan*.
-         *
-         * Returns the OLD domain objects (by reference, O(1) to save) keyed
-         * by slot id, so [undoForwardCheck] can restore them with a plain
-         * reference write instead of re-adding removed elements one by one.
+         * Uses the same min-side-iteration trick as forwardCheck to keep the
+         * COUNT cheap (no set construction, just tallying), so scoring a
+         * sample of candidates doesn't reintroduce the O(large domain) cost
+         * the last patch removed.
          */
+        fun lcvCost(slot: GridSlot, word: String): Int {
+            var cost = 0
+            for (crossing in crossings[slot.id].orEmpty()) {
+                val otherId = crossing.slotB
+                if (otherId in assignment) continue
+                val otherDomain = domain[otherId] ?: continue
+                val letter = word.getOrNull(crossing.indexA) ?: continue
+                val otherSlot = slotById[otherId] ?: continue
+                val idxB = crossing.indexB
+                if (idxB >= otherSlot.length) continue
+
+                val matching = index.wordsWithLetterAt(otherSlot.length, idxB, letter)
+                val kept = if (matching.size < otherDomain.size) {
+                    matching.count { it in otherDomain }
+                } else {
+                    otherDomain.count { it in matching }
+                }
+                cost += (otherDomain.size - kept)
+            }
+            return cost
+        }
+
+        /** LCV-ordered candidates: cheap sample sorted least-constraining-first, then the rest untouched. */
+        fun orderedCandidates(slot: GridSlot): List<String> {
+            val fullDomain = domain[slot.id].orEmpty()
+            if (fullDomain.size <= lcvSampleSize) {
+                return fullDomain.sortedBy { lcvCost(slot, it) }
+            }
+            val sample = fullDomain.asSequence().take(lcvSampleSize).toList()
+            val sampleSet = sample.toHashSet()
+            val scoredSample = sample.sortedBy { lcvCost(slot, it) }
+            val rest = fullDomain.asSequence().filterNot { it in sampleSet }
+            return scoredSample + rest
+        }
+
         fun forwardCheck(slot: GridSlot, word: String): MutableMap<Int, MutableSet<String>>? {
             val savedDomains = mutableMapOf<Int, MutableSet<String>>()
             for (crossing in crossings[slot.id].orEmpty()) {
@@ -378,16 +407,15 @@ object GridGenerator {
                 if (idxB >= otherSlot.length) continue
 
                 val matching = index.wordsWithLetterAt(otherSlot.length, idxB, letter)
-
                 val newDomain: MutableSet<String> = if (matching.size < otherDomain.size) {
                     matching.filterTo(HashSet(minOf(matching.size, otherDomain.size))) { it in otherDomain }
                 } else {
                     otherDomain.filterTo(HashSet()) { it in matching }
                 }
 
-                if (newDomain.size == otherDomain.size) continue // nothing pruned — skip the swap entirely
+                if (newDomain.size == otherDomain.size) continue
 
-                savedDomains[otherId] = otherDomain   // O(1) reference save
+                savedDomains[otherId] = otherDomain
                 domain[otherId] = newDomain
                 if (newDomain.isEmpty()) return null
             }
@@ -395,7 +423,7 @@ object GridGenerator {
         }
 
         fun undoForwardCheck(saved: Map<Int, MutableSet<String>>) {
-            for ((slotId, oldDomain) in saved) domain[slotId] = oldDomain   // O(1) reference restore per slot
+            for ((slotId, oldDomain) in saved) domain[slotId] = oldDomain
         }
 
         fun backtrack(unassigned: List<GridSlot>): Boolean {
@@ -404,10 +432,7 @@ object GridGenerator {
 
             val slot = mostConstrainedSlot(unassigned)
             val remaining = unassigned - slot
-            // No toList() copy here: domain[slot.id] is never mutated during
-            // its own candidate loop (only OTHER slots' domains get swapped
-            // out by forwardCheck), so iterating the Set directly is safe.
-            val candidates = domain[slot.id].orEmpty()
+            val candidates = orderedCandidates(slot)   // LCV ordering applied here
 
             for (word in candidates) {
                 if (timeUp()) return false
@@ -457,9 +482,9 @@ object GridGenerator {
         size: Int,
         wordsByLength: Map<Int, List<String>>,
         patterns: List<Set<Pair<Int, Int>>> = if (size <= 11) BLOCK_PATTERNS_11 else BLOCK_PATTERNS_15,
-        attemptsPerPattern: Int = 6,
-        maxBacktracksPerAttempt: Int = 8_000,
-        deadlineMillisPerAttempt: Long = 17_000L
+        attemptsPerPattern: Int = 4,
+        maxBacktracksPerAttempt: Int = 20_000,
+        deadlineMillisPerAttempt: Long = 25_000L
     ): GeneratedGrid? {
         val index = LetterPositionIndex(wordsByLength)
 

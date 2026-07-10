@@ -22,6 +22,7 @@ import com.enigma.wordnest.ui.theme.NestPurple
 import com.enigma.wordnest.ui.theme.NestSubtle
 import com.enigma.wordnest.ui.theme.NestTeal
 
+
 data class GameEntry(
     val title: String,
     val emoji: String,
@@ -45,7 +46,7 @@ private val games = listOf(
     ),
     GameEntry("Fragment", "🧩", "Solve clues, collect letters, crack the word", NestTeal, "fragment"),
     GameEntry("Absurd Auction", "🏦", "Scrabble, but the Banker picks your tiles", NestPurple, "absurd_auction"),
-    GameEntry("Ladder Claim", "🏗️", "Claim territory by playing near ladder-legal words", NestPurple, "ladder_claim"),
+    GameEntry("Ladder Claim", "🏗️", "Claim territory by playing near ladder-legal words", NestPink, "ladder_claim"),
     GameEntry("Crossword", "📰", "A fresh generated puzzle every time", NestTeal, "crossword"),
     GameEntry("Codeword", "🔢", "Decode the grid, one number at a time", NestPurple, "codeword")
 )
