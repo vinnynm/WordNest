@@ -342,4 +342,5 @@ private fun variantSubtitle(v: LadderClaimVariant) = when (v) {
     LadderClaimVariant.GENEROUS  -> "Easier FULL claims (L-2 match)"
     LadderClaimVariant.STRICT    -> "No neutral-tile theft"
     LadderClaimVariant.TARGET_STRIKE -> "Claims land on the TARGET word, not your own tiles"
+    LadderClaimVariant.FAIR_CLAIM -> "Matches claim neutral cells only — no whole-word theft, opponent tiles are always safe"
 }

@@ -15,7 +15,7 @@ enum class ColorOutcome { FULL, PARTIAL, NEUTRAL }
  *                 exact cell perpendicular to the target, and that crossing word is not
  *                 itself solely owned by the same opponent elsewhere.
  */
-enum class ClaimMode { OWN_TILES, TARGET_TILES }
+enum class ClaimMode { OWN_TILES, TARGET_TILES, FAIR_CLAIM }
 
 /**
  * fullCreditBar: matches needed for FULL is (longerLength - fullCreditBar).
@@ -32,11 +32,12 @@ enum class LadderClaimVariant(
     CLASSIC("Classic",     maxTurns = 20, fullCreditBar = 1, allowNeutralTheft = true, claimMode = ClaimMode.OWN_TILES),
     GENEROUS("Generous",   maxTurns = 20, fullCreditBar = 2, allowNeutralTheft = true, claimMode = ClaimMode.OWN_TILES),
     STRICT("Strict",       maxTurns = 20, fullCreditBar = 1, allowNeutralTheft = false, claimMode = ClaimMode.OWN_TILES),
+    TARGET_STRIKE("Target Strike", maxTurns = 20, fullCreditBar = 1, allowNeutralTheft = true, claimMode = ClaimMode.TARGET_TILES),
 
-    /** The reworked flavour: claims land on the TARGET word's cells, not your own tiles.
-     *  allowNeutralTheft doubles here as "reclaiming is enabled at all" — false means
-     *  target selection only ever shows a preview badge with no board effect. */
-    TARGET_STRIKE("Target Strike", maxTurns = 20, fullCreditBar = 1, allowNeutralTheft = true, claimMode = ClaimMode.TARGET_TILES)
+    /** New mode: matched cells only. Your own newly-placed tiles still color per match,
+     *  AND the target's matched cells claim too — but only where those target cells are
+     *  currently neutral. No whole-word theft, and opponent-owned cells are never touched. */
+    FAIR_CLAIM("Fair Claim", maxTurns = 20, fullCreditBar = 1, allowNeutralTheft = true, claimMode = ClaimMode.FAIR_CLAIM)
 }
 
 data class LadderTile(

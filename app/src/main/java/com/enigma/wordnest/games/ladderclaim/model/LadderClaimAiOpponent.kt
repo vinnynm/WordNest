@@ -104,6 +104,19 @@ class LadderClaimAiOpponent(private val dictionary: Set<String>) {
                 }
                 claimable
             }
+            ClaimMode.FAIR_CLAIM -> {
+                val (outcome, _) = LadderClaimEngine.classifyOwnTiles(target.word, move.word, fullCreditBar)
+                if (outcome == ColorOutcome.NEUTRAL) return 0
+                val matchedIndicesInTarget = LadderClaimEngine.computeMatch(target.word, move.word).matchedIndicesInTarget
+                var r = target.startRow; var c = target.startCol
+                var neutralClaimable = 0
+                for (i in target.word.indices) {
+                    if (i in matchedIndicesInTarget && board[r][c]?.ownerId == null) neutralClaimable++
+                    r += if (target.isHorizontal) 0 else 1
+                    c += if (target.isHorizontal) 1 else 0
+                }
+                move.word.length + neutralClaimable
+            }
         }
     }
 

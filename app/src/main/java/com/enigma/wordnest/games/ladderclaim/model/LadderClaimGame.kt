@@ -110,8 +110,9 @@ class LadderClaimGame {
         val ownerId = currentPlayer
 
         val result = when (variant.claimMode) {
-            ClaimMode.OWN_TILES -> resolveOwnTilesMode(target, mainWord, formed, isHorizontal, ownerId)
+            ClaimMode.OWN_TILES    -> resolveOwnTilesMode(target, mainWord, formed, isHorizontal, ownerId)
             ClaimMode.TARGET_TILES -> resolveTargetTilesMode(target, mainWord, formed, ownerId)
+            ClaimMode.FAIR_CLAIM   -> resolveFairClaimMode(target, mainWord, formed, ownerId)
         }
 
         drawNewTiles(placedThisTurn.size)
@@ -173,7 +174,62 @@ class LadderClaimGame {
     }
 
     // ── Claim mode: rework — claims land on the TARGET word's cells ────────
+    private fun resolveFairClaimMode(
+        target: LadderWord?,
+        mainWord: LadderWord,
+        formed: List<LadderWord>,
+        ownerId: Int
+    ): LadderPlayResult {
+        val match = target?.let { LadderClaimEngine.computeMatch(it.word, mainWord.word) }
+        val l = target?.let { maxOf(it.word.length, mainWord.word.length) } ?: 0
 
+        val outcome = when {
+            target == null || match == null -> ColorOutcome.NEUTRAL
+            match.matches > 0 && match.matches >= l - variant.fullCreditBar -> ColorOutcome.FULL
+            match.matches > 0 -> ColorOutcome.PARTIAL
+            else -> ColorOutcome.NEUTRAL
+        }
+
+        val matchedIndicesInNew = when {
+            outcome == ColorOutcome.FULL -> mainWord.word.indices.toSet()
+            outcome == ColorOutcome.PARTIAL -> match?.matchedIndicesInNew.orEmpty()
+            else -> emptySet()
+        }
+        val matchedIndicesInTarget = when {
+            outcome == ColorOutcome.FULL -> target?.word?.indices?.toSet().orEmpty()
+            outcome == ColorOutcome.PARTIAL -> match?.matchedIndicesInTarget.orEmpty()
+            else -> emptySet()
+        }
+
+        val coloredCells = mutableSetOf<Pair<Int, Int>>()
+        if (outcome != ColorOutcome.NEUTRAL) {
+            placedThisTurn.forEachIndexed { i, t -> if (i in matchedIndicesInNew) coloredCells += t.row to t.col }
+        }
+        placedThisTurn.forEach { t ->
+            val owner = if ((t.row to t.col) in coloredCells) ownerId else null
+            board[t.row][t.col] = LadderTile(t.row, t.col, t.letter, owner, turnClaimed = turnCount)
+        }
+        formed.forEach { w -> if (words.none { it.id == w.id }) words += w.copy(ownerId = null) }
+
+        var targetFullyMover = false
+        if (target != null && outcome != ColorOutcome.NEUTRAL) {
+            var r = target.startRow
+            var c = target.startCol
+            var allMover = true
+            for (i in target.word.indices) {
+                val existing = board[r][c]
+                if (i in matchedIndicesInTarget && existing != null && existing.ownerId == null) {
+                    board[r][c] = existing.copy(ownerId = ownerId)
+                }
+                if (board[r][c]?.ownerId != ownerId) allMover = false
+                r += if (target.isHorizontal) 0 else 1
+                c += if (target.isHorizontal) 1 else 0
+            }
+            targetFullyMover = allMover
+        }
+
+        return LadderPlayResult(target, outcome, matchedIndicesInNew, targetFullyMover)
+    }
     private fun resolveTargetTilesMode(
         target: LadderWord?,
         mainWord: LadderWord,

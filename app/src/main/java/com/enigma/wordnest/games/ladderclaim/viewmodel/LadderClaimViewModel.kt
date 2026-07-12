@@ -226,8 +226,10 @@ class LadderClaimViewModel(application: Application) : AndroidViewModel(applicat
         } ?: return null
 
         return when (s.variant.claimMode) {
-            ClaimMode.OWN_TILES -> LadderClaimEngine.classifyOwnTiles(target.word, mainWord.word, s.variant.fullCreditBar)
-            ClaimMode.TARGET_TILES -> LadderClaimEngine.classify(target.word, mainWord.word, s.variant.fullCreditBar)
+            ClaimMode.OWN_TILES, ClaimMode.FAIR_CLAIM ->
+                LadderClaimEngine.classifyOwnTiles(target.word, mainWord.word, s.variant.fullCreditBar)
+            ClaimMode.TARGET_TILES ->
+                LadderClaimEngine.classify(target.word, mainWord.word, s.variant.fullCreditBar)
         }
     }
 

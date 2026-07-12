@@ -90,7 +90,7 @@ fun HomeScreen(onNavigate: (String) -> Unit) {
 
             items(games.toList()) { game ->
                 GameCard(game = game, onClick = { onNavigate(game.route) })
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(4.dp))
             }
 
         }
@@ -102,6 +102,7 @@ private fun GameCard(game: GameEntry, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(4.dp)
             .clip(RoundedCornerShape(20.dp))
             .background(
                 Brush.horizontalGradient(
