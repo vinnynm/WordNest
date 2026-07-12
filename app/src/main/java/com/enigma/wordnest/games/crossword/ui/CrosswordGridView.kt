@@ -59,29 +59,36 @@ fun CrosswordGridView(
     }
 
     val cellSize = cellSizeFor(puzzle.gridSize)
-
     Column(
-        modifier = modifier.horizontalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(0.dp)
+        modifier = Modifier
+            .padding(4.dp)
+            .fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        for (row in puzzle.grid) {
-            Row {
-                for (cell in row) {
-                    CrosswordCellSlot(
-                        cell = cell,
-                        filledMap = filledMap,
-                        isChecked = (cell.row to cell.col) in checkedCells,
-                        isWrong = (cell.row to cell.col) in wrongCells,
-                        isRevealed = (cell.row to cell.col) in revealedCells,
-                        isSelected = selectedCell == (cell.row to cell.col),
-                        isInSelectedWord = (cell.row to cell.col) in selectedWordCells,
-                        size = cellSize,
-                        onClick = { onCellClick(cell.row, cell.col) }
-                    )
+        Column(
+            modifier = modifier.horizontalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
+        ) {
+            for (row in puzzle.grid) {
+                Row {
+                    for (cell in row) {
+                        CrosswordCellSlot(
+                            cell = cell,
+                            filledMap = filledMap,
+                            isChecked = (cell.row to cell.col) in checkedCells,
+                            isWrong = (cell.row to cell.col) in wrongCells,
+                            isRevealed = (cell.row to cell.col) in revealedCells,
+                            isSelected = selectedCell == (cell.row to cell.col),
+                            isInSelectedWord = (cell.row to cell.col) in selectedWordCells,
+                            size = cellSize,
+                            onClick = { onCellClick(cell.row, cell.col) }
+                        )
+                    }
                 }
             }
         }
     }
+
 }
 
 private fun cellSizeFor(gridSize: Int): Dp = when {

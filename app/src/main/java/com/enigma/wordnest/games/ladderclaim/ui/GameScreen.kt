@@ -129,12 +129,20 @@ fun LadderClaimGameScreen(vm: LadderClaimViewModel = viewModel()) {
 
                 Spacer(Modifier.height(4.dp))
 
-                LadderBoard(
-                    board = state.board,
-                    placedThisTurn = state.placedThisTurn,
-                    onCellClick = vm::onCellClick,
-                    cellSize = cellSize
-                )
+                Column(modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(2.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    LadderBoard(
+                        board = state.board,
+                        placedThisTurn = state.placedThisTurn,
+                        onCellClick = vm::onCellClick,
+                        cellSize = cellSize
+                    )
+                }
+
+
 
                 Spacer(Modifier.height(8.dp))
 

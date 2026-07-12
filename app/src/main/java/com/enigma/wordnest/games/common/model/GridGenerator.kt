@@ -20,11 +20,7 @@ import android.util.Log
  *   2. Gap densification — after growth stalls, scans every remaining
  *      blank run between two already-placed words (row-wise and
  *      column-wise) and tries to bridge it with a dictionary word that
- *      legally crosses whatever's around it. This is what catches cases
- *      like ROSE at (0, 11:14) and PRAWN at (2, 10:14) leaving a
- *      fillable gap at row 1 that frontier growth alone would never
- *      revisit once its neighbors were already "complete" in both
- *      directions.
+ *      legally crosses whatever's around it.
  *
  * Both passes reuse the same [canPlace]/[placeWord] primitives, so gap
  * densification can only ever add legal words — it can't introduce any
@@ -52,6 +48,10 @@ data class GeneratedGrid(
     val fill: Map<Int, String>
 )
 
+
+
+
+
 object GridGenerator {
 
     private const val TAG = "GridGenerator"
@@ -70,41 +70,58 @@ object GridGenerator {
      *                          pools) before giving up
      * @param maxCandidatesPerFrontierCell how many candidate words to try per
      *                          frontier/gap slot per pass — bounds worst-case cost
+     * @param allowTwoLetterBridges whether densify may bridge 2-letter gaps
+     *                          using the dictionary's 2-letter words (if the
+     *                          pool has any). Off by default to avoid a grid
+     *                          cluttered with AA/OX/IT-style filler; turn on
+     *                          if you want maximum density over "clean" fill.
      */
     fun generate(
         size: Int,
         wordsByLength: Map<Int, List<String>>,
-        targetFillRatio: Double = 0.55,
+        targetFillRatio: Double = 0.72,
         maxWords: Int = Int.MAX_VALUE,
-        maxAttempts: Int = 6,
-        maxCandidatesPerFrontierCell: Int = 8
+        maxAttempts: Int = 10,
+        maxCandidatesPerFrontierCell: Int = 24,
+        allowTwoLetterBridges: Boolean = false
     ): GeneratedGrid? {
-        // Only 3+ letter words are usable as slots (2-letter slots are a well-known
-        // constraint-propagation killer) and words must fit the board.
+        val minWordLen = if (allowTwoLetterBridges) 2 else 3
+        // Only usable-length words (2/3+ letter slots) and words must fit the board.
         val pool: Map<Int, List<String>> = wordsByLength
-            .filterKeys { it in 3..size }
+            .filterKeys { it in minWordLen..size }
             .mapValues { (_, words) -> words.map { it.uppercase() }.distinct() }
 
         if (pool.values.sumOf { it.size } == 0) {
-            Log.w(TAG, "generate: no usable words for size=$size (need length 3..$size)")
+            Log.w(TAG, "generate: no usable words for size=$size (need length $minWordLen..$size)")
             return null
         }
+
+        var best: GeneratedGrid? = null
+        var bestFillRatio = 0.0
 
         repeat(maxAttempts) { attempt ->
             Log.d(TAG, "generate: size=$size attempt=$attempt")
             val result = growOnce(size, pool, targetFillRatio, maxWords, maxCandidatesPerFrontierCell)
             if (result != null) {
                 val filledCells = size * size - result.blocked.size
-                Log.d(
-                    TAG,
-                    "generate: success words=${result.slots.size} " +
-                            "fillRatio=${"%.2f".format(filledCells.toDouble() / (size * size))}"
-                )
-                return result
+                val ratio = filledCells.toDouble() / (size * size)
+                Log.d(TAG, "generate: attempt=$attempt words=${result.slots.size} fillRatio=${"%.2f".format(ratio)}")
+
+                if (ratio > bestFillRatio) {
+                    best = result
+                    bestFillRatio = ratio
+                }
+                // Good enough — stop early rather than burning through all attempts.
+                if (ratio >= targetFillRatio) return best
             }
         }
-        Log.w(TAG, "generate: size=$size exhausted $maxAttempts attempts — dictionary likely lacks coverage")
-        return null
+
+        if (best != null) {
+            Log.d(TAG, "generate: returning best attempt at fillRatio=${"%.2f".format(bestFillRatio)}")
+        } else {
+            Log.w(TAG, "generate: size=$size exhausted $maxAttempts attempts — dictionary likely lacks coverage")
+        }
+        return best
     }
 
     // ── Single generation attempt (growth + densify) ─────────────────────────
@@ -199,7 +216,7 @@ object GridGenerator {
                 consecutiveFailedPasses = 0
             } else {
                 consecutiveFailedPasses++
-                if (consecutiveFailedPasses >= 2) break // frontier exhausted, no point retrying identical scan
+                if (consecutiveFailedPasses >= 4) break // frontier genuinely exhausted
             }
         }
 
@@ -218,11 +235,10 @@ object GridGenerator {
     // words with no crossing of their own — e.g. ROSE at (0, 11:14) and
     // PRAWN at (2, 10:14) leave row 1 blank between them. If a dictionary
     // word matches whatever letters would cross it at each column, it can
-    // bridge the gap (RARE at (0:3, 11) in that example). This pass is
-    // strictly additive over already-valid growth output: it reuses
-    // canPlace/placeWord, so it enforces the exact same no-incidental-
-    // adjacency rule as pass 1 and can only add valid words, never
-    // break anything already placed.
+    // bridge the gap. This pass is strictly additive over already-valid
+    // growth output: it reuses canPlace/placeWord, so it enforces the exact
+    // same no-incidental-adjacency rule as pass 1 and can only add valid
+    // words, never break anything already placed.
 
     private fun densify(
         size: Int,
@@ -234,12 +250,13 @@ object GridGenerator {
         pool: Map<Int, List<String>>,
         maxCandidatesPerGap: Int
     ) {
+        val minGapLen = pool.keys.minOrNull() ?: 3
         var addedAny = true
         var safetyPasses = 0
         var totalAdded = 0
         // Repeat until a full pass adds nothing — filling one gap can create
         // new crossing letters that make an adjacent gap fillable too.
-        while (addedAny && safetyPasses < 4) {
+        while (addedAny && safetyPasses < 10) {
             addedAny = false
             safetyPasses++
 
@@ -251,7 +268,7 @@ object GridGenerator {
                     val runStart = r
                     while (r < size && grid[r][c] == ' ') r++
                     val runLen = r - runStart
-                    if (runLen < 3) continue
+                    if (runLen < minGapLen) continue
                     if (tryFillGap(size, grid, acrossAt, downAt, placements, usedWords, pool,
                             runStart, c, runLen, horizontal = false, maxCandidatesPerGap)) {
                         addedAny = true
@@ -268,7 +285,7 @@ object GridGenerator {
                     val runStart = c
                     while (c < size && grid[r][c] == ' ') c++
                     val runLen = c - runStart
-                    if (runLen < 3) continue
+                    if (runLen < minGapLen) continue
                     if (tryFillGap(size, grid, acrossAt, downAt, placements, usedWords, pool,
                             r, runStart, runLen, horizontal = true, maxCandidatesPerGap)) {
                         addedAny = true
@@ -282,13 +299,11 @@ object GridGenerator {
 
     /**
      * Tries to fill (some or all of) a blank run of length [runLen] starting at
-     * ([runStart], [fixedCoord]) with a word. Previously this only tried a word
-     * whose length matched the ENTIRE run — if nothing fit, the whole run stayed
-     * black. Now it tries every length from [runLen] down to 3, at every valid
-     * offset within the run, preferring longer/more-central fits first (fewer,
-     * bigger words read as a "nicer" grid than lots of tiny ones). A shorter word
-     * that only fills part of the run is fine: [densify]'s outer loop rescans
-     * afterward and will find the remaining sub-run(s) on the next pass.
+     * ([runStart], [fixedCoord]) with a word. Tries every length from [runLen]
+     * down to the shortest usable length, at every valid offset within the run,
+     * preferring longer/more-central fits first. A shorter word that only fills
+     * part of the run is fine: [densify]'s outer loop rescans afterward and will
+     * find the remaining sub-run(s) on the next pass.
      */
     private fun tryFillGap(
         size: Int,
@@ -304,10 +319,11 @@ object GridGenerator {
         horizontal: Boolean,
         maxCandidates: Int
     ): Boolean {
+        val minLen = pool.keys.minOrNull() ?: 3
         // Longer fits first (fills more of the run per placement, fewer total
         // words needed), each length tried at a shuffled set of offsets so we
         // don't always bias toward one edge of the run.
-        for (length in runLen downTo 3) {
+        for (length in runLen downTo minLen) {
             val maxOffset = runLen - length
             val offsets = (0..maxOffset).shuffled()
 
@@ -319,7 +335,7 @@ object GridGenerator {
                     .asSequence()
                     .filter { it !in usedWords }
                     .shuffled()
-                    .take(maxCandidates * 4) // oversample since most will fail canPlace
+                    .take(maxCandidates * 8) // oversample since most will fail canPlace
                     .toList()
 
                 for (word in candidates) {

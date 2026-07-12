@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -24,15 +25,15 @@ import com.enigma.wordnest.games.codeword.ui.theme.*
 /**
  * Renders the codeword grid. The "ripple effect" (one number -> every matching cell)
  * is handled by keying a [SnapshotStateMap] on NUMBER rather than (row, col): every cell
- * sharing a number reads the same map entry, so filling number N recomposes exactly the
+ * sharing a Number reads the same map entry, so filling number N recomposes exactly the
  * cells showing N — not the whole grid, and not cells showing other numbers.
  */
 @Composable
 fun CodewordGridView(
-    puzzle: com.enigma.wordnest.games.codeword.model.CodewordPuzzle,
+    puzzle: CodewordPuzzle,
     numberToPlayerLetter: Map<Int, Char>,
     revealedNumbers: Set<Int>,
-    starterStyle: com.enigma.wordnest.games.codeword.model.StarterCellStyle,
+    starterStyle: StarterCellStyle,
     selectedNumber: Int?,
     onCellClick: (Int) -> Unit,
     modifier: Modifier = Modifier
@@ -44,25 +45,33 @@ fun CodewordGridView(
     }
 
     val cellSize = if (puzzle.gridSize <= 11) 30.dp else 24.dp
-
-    Column(modifier = modifier.horizontalScroll(rememberScrollState())) {
-        for (row in puzzle.grid) {
-            Row {
-                for (cell in row) {
-                    CodewordCellSlot(
-                        cell = cell,
-                        letterMap = letterMap,
-                        isStarter = cell.number != null && cell.number in puzzle.blurredStarterNumbers,
-                        isRevealed = cell.number != null && cell.number in revealedNumbers,
-                        isSelected = cell.number != null && cell.number == selectedNumber,
-                        starterStyle = starterStyle,
-                        size = cellSize,
-                        onClick = { cell.number?.let(onCellClick) }
-                    )
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(4.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ){
+        Column(modifier = modifier.horizontalScroll(rememberScrollState())) {
+            for (row in puzzle.grid) {
+                Row {
+                    for (cell in row) {
+                        CodewordCellSlot(
+                            cell = cell,
+                            letterMap = letterMap,
+                            isStarter = cell.number != null && cell.number in puzzle.blurredStarterNumbers,
+                            isRevealed = cell.number != null && cell.number in revealedNumbers,
+                            isSelected = cell.number != null && cell.number == selectedNumber,
+                            starterStyle = starterStyle,
+                            size = cellSize,
+                            onClick = { cell.number?.let(onCellClick) }
+                        )
+                    }
                 }
             }
         }
     }
+
 }
 
 @Composable

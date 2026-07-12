@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.enigma.wordnest.games.absurdman.model.AbsurdmanMode
 import com.enigma.wordnest.games.absurdman.model.MAX_WRONG_GUESSES
 import com.enigma.wordnest.games.absurdman.ui.theme.AbsurdmanTheme
 import com.enigma.wordnest.games.absurdman.ui.theme.ColorGood
@@ -43,7 +44,8 @@ fun AbsurdmanGameScreen(vm: AbsurdmanViewModel = viewModel()) {
                             Text("Absurdman", fontWeight = FontWeight.Black, fontSize = 22.sp,
                                 color = ColorRustLight)
                             if (state.isGameStarted) {
-                                Text("${state.wordLength} letters", fontSize = 11.sp, color = ColorSubtle)
+                                val modeLabel = if (state.mode == AbsurdmanMode.HELL) "Hell Mode 😈" else "Classic"
+                                Text("${state.wordLength} letters  ·  $modeLabel", fontSize = 11.sp, color = ColorSubtle)
                             }
                         }
                     },
@@ -70,7 +72,7 @@ fun AbsurdmanGameScreen(vm: AbsurdmanViewModel = viewModel()) {
             }
 
             if (!state.isGameStarted) {
-                AbsurdmanStartScreen(onStartGame = { len -> vm.startGame(len) })
+                AbsurdmanStartScreen(onStartGame = { len, mode -> vm.startGame(len, mode) })
                 return@Scaffold
             }
 
@@ -85,6 +87,17 @@ fun AbsurdmanGameScreen(vm: AbsurdmanViewModel = viewModel()) {
                     fontWeight = if (state.wrongGuessesRemaining <= 2) FontWeight.Bold else FontWeight.Normal,
                     color = if (state.wrongGuessesRemaining <= 2) MaterialTheme.colorScheme.error else ColorSubtle
                 )
+
+                if (state.clues.isNotEmpty()) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        state.clues.forEach { clue ->
+                            Text("• $clue", fontSize = 12.sp, color = ColorSubtle)
+                        }
+                    }
+                }
 
                 HangmanFigure(
                     wrongGuesses = state.wrongGuesses,

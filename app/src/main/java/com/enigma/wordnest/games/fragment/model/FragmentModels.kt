@@ -36,7 +36,14 @@ data class FragmentState(
     val isWon: Boolean = false,
     val isLost: Boolean = false,
     val errorMessage: String? = null,
-    val isGameStarted: Boolean = false
+    val isGameStarted: Boolean = false,
+    /**
+     * True if the loss happened before all hint words were solved. In that case the
+     * player never reached the anagram stage, so the mystery word itself is withheld
+     * on the game-over screen — instead, whatever hint words were still unsolved get
+     * revealed, since that's the furthest the player actually got.
+     */
+    val lostDuringHints: Boolean = false
 ) {
     val isActive: Boolean get() = isGameStarted && !isWon && !isLost
     val livesRemaining: Int get() = lives.coerceAtLeast(0)

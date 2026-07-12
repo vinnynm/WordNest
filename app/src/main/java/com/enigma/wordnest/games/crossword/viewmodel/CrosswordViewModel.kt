@@ -181,12 +181,26 @@ class CrosswordViewModel(application: Application) : AndroidViewModel(applicatio
         val p = _puzzle.value ?: return
         val cell = p.grid.getOrNull(row)?.getOrNull(col) ?: return
         if (cell.isBlocked) return
+
+        val hasAcross = p.acrossClues.any { row to col in it.cells() }
+        val hasDown = p.downClues.any { row to col in it.cells() }
+
         if (_selectedCell.value == (row to col)) {
-            val hasAcross = cell.clueNumberAcross != null || p.acrossClues.any { row to col in it.cells() }
-            val hasDown = cell.clueNumberDown != null || p.downClues.any { row to col in it.cells() }
+            // Second tap on the SAME cell: toggle, but only if both directions exist here.
             if (hasAcross && hasDown) {
                 _selectedDirection.value =
                     if (_selectedDirection.value == ClueDirection.ACROSS) ClueDirection.DOWN else ClueDirection.ACROSS
+            }
+        } else {
+            // First tap on a NEW cell: keep the current direction if it's valid here,
+            // otherwise switch to whichever direction the cell actually has — this is
+            // what was missing, and why single-clue cells could show no clue at all.
+            _selectedDirection.value = when {
+                _selectedDirection.value == ClueDirection.ACROSS && hasAcross -> ClueDirection.ACROSS
+                _selectedDirection.value == ClueDirection.DOWN && hasDown -> ClueDirection.DOWN
+                hasAcross -> ClueDirection.ACROSS
+                hasDown -> ClueDirection.DOWN
+                else -> _selectedDirection.value  // blocked/edge cell, shouldn't happen given the isBlocked check above
             }
         }
         _selectedCell.value = row to col

@@ -79,14 +79,21 @@ fun FragmentGameScreen(vm: FragmentViewModel = viewModel()) {
                 when (state.phase) {
                     FragmentPhase.SOLVING_HINTS -> HintWordsSection(state, vm)
                     FragmentPhase.ANAGRAM -> AnagramSection(state, vm)
-                    FragmentPhase.GAME_OVER -> {}
+                    // If the player died before finishing the clue words, keep showing
+                    // the (now fully revealed) hint words instead of the anagram section
+                    // — that's the furthest they actually got.
+                    FragmentPhase.GAME_OVER -> if (state.lostDuringHints) HintWordsSection(state, vm)
                 }
 
                 if (state.phase == FragmentPhase.GAME_OVER) {
                     GameOverTemplate(
                         title = if (state.isWon) "🧩 Solved!" else "💔 Out of lives",
                         titleColor = if (state.isWon) ColorGood else MaterialTheme.colorScheme.error,
-                        subtitle = if (!state.isWon) "The word was ${state.mysteryWord.uppercase()}" else null,
+                        subtitle = when {
+                            state.isWon -> null
+                            state.lostDuringHints -> "You didn't make it to the anagram — here's what those clue words were:"
+                            else -> "The word was ${state.mysteryWord.uppercase()}"
+                        },
                         onNewGame = { vm.startGame(state.wordLength) },
                         onShare = {},
                         accentColor = ColorAmberLight
@@ -106,7 +113,7 @@ private fun HintWordsSection(state: FragmentState, vm: FragmentViewModel) {
         }
     }
     val active = state.hintWords.find { it.id == state.activeHintWordId }
-    if (active != null) {
+    if (active != null && state.phase == FragmentPhase.SOLVING_HINTS) {
         Spacer(Modifier.height(4.dp))
         PhysicalKeyboardInput(
             value = active.currentInput,
@@ -116,7 +123,7 @@ private fun HintWordsSection(state: FragmentState, vm: FragmentViewModel) {
             accentColor = ColorAmberLight
         )
     }
-    if (state.collectedTiles.isNotEmpty()) {
+    if (state.collectedTiles.isNotEmpty() && state.phase == FragmentPhase.SOLVING_HINTS) {
         Spacer(Modifier.height(4.dp))
         Text("Collected letters", fontSize = 12.sp, color = ColorSubtle)
         TilePool(tiles = state.collectedTiles, usedIds = emptyList(), onTap = {})

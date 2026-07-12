@@ -4,8 +4,11 @@ enum class ClueDirection { ACROSS, DOWN }
 
 enum class CrosswordDifficulty(val label: String, val gridSize: Int) {
     QUICK("Quick", 11),
-    DAILY("Daily", 15)
+    DAILY("Daily", 15),
+    EXPERT("Expert", 25)
 }
+
+
 
 data class CrosswordCell(
     val row: Int,

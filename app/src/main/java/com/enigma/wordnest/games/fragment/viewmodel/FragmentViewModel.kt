@@ -164,6 +164,10 @@ class FragmentViewModel(application: Application) : AndroidViewModel(application
         _state.update { s ->
             val newLives = s.lives - 1
             val lost = newLives <= 0
+            // Only meaningful the moment the game actually ends, and only if the
+            // player was still in the hint-solving phase when it happened.
+            val diedDuringHints = lost && s.phase == FragmentPhase.SOLVING_HINTS
+
             s.copy(
                 lives = newLives,
                 errorMessage = message,
@@ -171,7 +175,16 @@ class FragmentViewModel(application: Application) : AndroidViewModel(application
                 phase = if (lost) FragmentPhase.GAME_OVER else s.phase,
                 anagramInput = if (resetAnagram) "" else s.anagramInput,
                 usedTileIds = if (resetAnagram) emptyList() else s.usedTileIds,
-                hintWords = s.hintWords.map { if (it.id == s.activeHintWordId) it.copy(currentInput = "") else it }
+                hintWords = s.hintWords.map {
+                    when {
+                        it.id == s.activeHintWordId -> it.copy(currentInput = "")
+                        // Reveal every still-unsolved hint word's real answer, in place
+                        // of the mystery word, since the player never got past this stage.
+                        diedDuringHints && !it.isSolved -> it.copy(isSolved = true)
+                        else -> it
+                    }
+                },
+                lostDuringHints = diedDuringHints || s.lostDuringHints
             )
         }
         if (_state.value.isLost) recordStats(false)
