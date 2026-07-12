@@ -36,6 +36,7 @@ private val games = listOf(
     GameEntry("Absurdle", "😈", "The Wordle that fights back", NestPurple, "absurdle"),
     GameEntry("ChromaWord", "🌈", "Wordle, but every letter tells a richer story", NestTeal, "chromaword"),
     GameEntry("Lexicon", "📜", "Two-player word strategy, vs a real AI", NestPurple, "lexicon"),
+    GameEntry("Synthetix", "📜", "Two-player word strategy, vs a real AI", NestSubtle, "synth"),
     GameEntry("WordLadder", "🪜", "Connect two words by changing one letter at a time", NestPink, "WordLadder"),
     GameEntry(
         title = "HangMan",
@@ -49,6 +50,7 @@ private val games = listOf(
     GameEntry("Ladder Claim", "🏗️", "Claim territory by playing near ladder-legal words", NestPink, "ladder_claim"),
     GameEntry("Crossword", "📰", "A fresh generated puzzle every time", NestTeal, "crossword"),
     GameEntry("Codeword", "🔢", "Decode the grid, one number at a time", NestPurple, "codeword")
+
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -91,6 +93,38 @@ fun HomeScreen(onNavigate: (String) -> Unit) {
             items(games.toList()) { game ->
                 GameCard(game = game, onClick = { onNavigate(game.route) })
                 Spacer(Modifier.height(4.dp))
+            }
+
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(horizontal = 4.dp)
+                        .clickable { onNavigate("about") }
+                        .background(
+                            shape = MaterialTheme.shapes.medium,
+                            brush = Brush
+                            .verticalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.surface,
+                                    MaterialTheme.colorScheme.background
+                                )
+                            )
+                        )
+                        .padding(24.dp)
+                    ,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "About Game",
+                        fontSize = 42.sp,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary,
+                        letterSpacing = 1.sp
+                    )
+                }
             }
 
         }

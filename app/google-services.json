@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "302417283517",
+    "firebase_url": "https://greyson-a9899-default-rtdb.firebaseio.com",
+    "project_id": "greyson-a9899",
+    "storage_bucket": "greyson-a9899.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:302417283517:android:d47d9a4dac3428f93b2ad4",
+        "android_client_info": {
+          "package_name": "com.enigma.wordnest"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBIWyMMC0ShvdzfCaFY8D-EjgTU9OU5oik"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:302417283517:android:bfcebdb534ac6e5e3b2ad4",
+        "android_client_info": {
+          "package_name": "rev.enigmaapps.greyson"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBIWyMMC0ShvdzfCaFY8D-EjgTU9OU5oik"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

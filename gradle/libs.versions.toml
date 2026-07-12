@@ -12,6 +12,10 @@ junit                   = "4.13.2"
 junitExt                = "1.2.1"
 espresso                = "3.6.1"
 ksp = "2.1.21-2.0.1"
+googleGmsGoogleServices = "4.5.0"
+firebaseFirestore = "26.4.1"
+firebaseDatabase = "21.0.0"
+coroutinesPlayServices = "1.11.0"
 
 [libraries]
 # Compose BOM — import this as a platform dependency, then omit versions below
@@ -37,6 +41,9 @@ gson                        = { group = "com.google.code.gson",           name =
 junit                       = { group = "junit",                          name = "junit",                     version.ref = "junit" }
 androidx-junit-ext          = { group = "androidx.test.ext",              name = "junit",                     version.ref = "junitExt" }
 androidx-espresso-core      = { group = "androidx.test.espresso",         name = "espresso-core",             version.ref = "espresso" }
+firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore", version.ref = "firebaseFirestore" }
+firebase-database = { group = "com.google.firebase", name = "firebase-database", version.ref = "firebaseDatabase" }
+kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "coroutinesPlayServices" }
 
 
 [plugins]
@@ -44,3 +51,4 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android      = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose      = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+google-gms-google-services = { id = "com.google.gms.google-services", version.ref = "googleGmsGoogleServices" }

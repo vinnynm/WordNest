@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.google.gms.google.services)
 }
 
 android {
@@ -42,6 +43,9 @@ android {
 
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.database)
+    implementation(libs.kotlinx.coroutines.play.services)
     androidTestImplementation(platform(libs.androidx.compose.bom))
 
     implementation(libs.androidx.compose.ui)
@@ -59,8 +63,6 @@ dependencies {
     implementation(libs.androidx.datastore)
     implementation(libs.gson)
 
-    implementation("com.google.code.gson:gson:2.11.0")
-    implementation("androidx.datastore:datastore-preferences:1.0.0")
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
     implementation("com.google.accompanist:accompanist-systemuicontroller:0.32.0")
 
